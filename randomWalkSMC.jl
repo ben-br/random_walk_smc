@@ -15,11 +15,17 @@ TO DO:
 
 """
 
-immutable struct SamplerState{TG<:AbstractGraph,TI<:Int,T<:AbstractFloat,TS<:AbstractFloat}
+abstract type EdgeList <: Array{Int64}{2} end # stores edges in a graph
+abstract type VertexMap <: Vector{Int64}
+abstract type ParticlePath <: Vector end # stores retained smc particle path
+
+immutable struct SamplerState{TG::EdgeList,TE<:Real,T<:AbstractFloat}
   # structure for keeping track of overall sampler quantities
 
-  G_data::TG # observed graph, fixed
-  n_edges_data::TI # number of edges in `G_data`, fixed
+  data_elist::TG # observed graph, fixed, edge list indices
+  data_elist_vals::Vector{TE} # observed graph, fixed, edge list values (e.g., 1 for a simple graph)
+  degree_data::Vector{Int64}
+  n_edges_data::Int64 # number of edges in `G_data`, fixed
   size_bias::Bool # whether root vertex is sampled from size-biased distribution, fixed
   a_α::T # hyper-parameter for alpha, fixed
   b_α::T # hyper-parameter for alpha, fixed
@@ -27,24 +33,37 @@ immutable struct SamplerState{TG<:AbstractGraph,TI<:Int,T<:AbstractFloat,TS<:Abs
   b_λ::T # hyper-parameter for lambda, fixed
   α::Vector{T} # current value of alpha, updates with sampler
   λ::Vector{T} # current value of lambda, updates with sampler
-  I::Vector{TS} # current vector of coin flips, updates with sampler
-  K::Vector{TS} # current vector of r.w. lengths, updates with sampler
-  G_cSMC::ParticleState # current labeled graph and SMC information, updates with sampler
+  I::Vector{Int64} # current vector of coin flips, updates with sampler
+  K::Vector{Int64} # current vector of r.w. lengths, updates with sampler
+  G_cSMC::ParticlePath # current labeled graph and SMC information, updates with sampler
   resample_method::String # either `multinomial` or `residual`
+  resample_ess_threshold::Float64
 
 end
 
-mutable struct ParticleState{S <: Int, T <: AbstractGraph, FW <: AbstractFloat, FD <: AbstractFloat}
+function new_sampler_state(G_data::Vector{Int64},)
+
+
+end
+
+function new_sampler_state(G_data::Array{Int64}{2},)
+
+
+end
+
+mutable struct ParticleState{S::Int64, T <: AbstractGraph, FW <: AbstractFloat, FD <: AbstractFloat}
   # structure for keeping track of state information for particle states
   # the type S is inherited from graph
 
-  graph::T  # graph object (from LightGraphs)
-  edge_list::Vector{Tuple{S,S}} # edges in order of insertion (pre-allocate?)
+  # graph::T  # graph object (from LightGraphs)
+  t::Int64 # how many edges have been inserted
+  edge_list::EdgeList # edges in order of insertion (pre-allocate)
+  n_vertices::Int64
   log_w_list::Vector{FW} # unnormalized log-importance weights corresponding to edge_list proposals
   degrees::Vector{FD} # degree vector ?? is this needed ??
   vertex_map::Vector{S}  # vector where `v[j]` maps vertex `j` in the current graph to `v[j]` of the observed (final) graph
-  vertex_map_hoods::Vector{Array{S,1}} # vector of neighborhoods in `G_data` of each vertex in `vertex_map`
-  # eligible_edges::Vector{Tuple{S,S}} # vector of edge tuples indicating which edges in the final graph haven't been inserted yet
+  vertex_unmap::Vector{S} # vector where v[j] maps vertex j in the final graph to v[j] in the current graph
+  edge_queue::Array{S}{2} # vector of edge tuples indicating which edges in the final graph haven't been inserted yet
   # eligible_vertices::Vector{S} # vector of vertex indices indicating which vertices in the final graph haven't been inserted yet
   eigen_system::Base.LinAlg.Eigen  # eigen system of normalized Laplacian of graph
 
@@ -64,57 +83,84 @@ immutable struct ParticleSet{T <: Int, TF <: AbstractFloat, S <: Int, GInt <: In
 
 end
 
-function SampleEdgeProposal(p_state::ParticleState, n_samples<:Int, s_state<:SamplerState)
+# function GenMask(edge_list::EdgeList,vertex_unmap::VertexMap,n_vertices::Int64)
+#
+#   perm_edge_list = [edge_list[,1]]
+#   col1 = falses(size(edge_list,1),1)
+#   col1 = [  ]
+#   for j in 1:size(col1,1)
+#     col1 =
+#
+#   end
+#
+# end
+
+function GenMask(W::Array{Float64,2},edge_queue::Array{Int64,2},vertex_unmap::Vector{Int64})
+  # generates W_mask matrix for eligible internal edges
+  unmapped_edge_queue = zeros(2*size(edge_queue,1))
+  W_vals = zeros(eltype(W),2*size(edge_queue,1))
+  # mask = zeros(W)
+  for i in 1:size(edge_queue,1)
+    unmapped_edge_queue[i,1] = vertex_unmap[edge_queue[i,1]]
+    unmapped_edge_queue[i,2] = vertex_unmap[edge_queue[i,2]]
+
+    unmapped_edge_queue[size(edge_queue,1)+i,1] = vertex_unmap[edge_queue[i,2]]
+    unmapped_edge_queue[size(edge_queue,1)+i,2] = vertex_unmap[edge_queue[i,1]]
+
+    W_vals[i] = W[unmapped_edge_queue[i,1],unmapped_edge_queue[i,2]]
+    W_vals[size(edge_queue,1)+i] = W[unmapped_edge_queue[i,2],unmapped_edge_queue[i,1]]
+
+  end
+  W_mask = sparse(unmapped_edge_queue[:,1],unmapped_edge_queue[:,2],W_vals)
+  return W_mask
+end
+
+function SampleEdgeProposal(p_state::ParticleState, n_samples::Int64, s_state::SamplerState)
   # function generates `n_samples` edge proposals for `p_state`
   # posterior predictive probs
-  t_step = ne(p_state.graph)
+  t_step = s_state.n_edges_data - p_state.t + 1
+  # calculate predictive probabiliy of a new vertex
   P_I_1 = (s_state.a_α + sum(s_state.I) - s_state.I[t_step])/(s_state.a_α + s_state.b_α + nEdgesFinal - 1);
+  # calculate parameters of predictive distribution for random walk length
   a_lambdaPrime = (s_state.a_λ + sum(s_state.K) - s_state.K[t_step]);
   b_lambdaPrime = 1/(s_state.b_λ + s_state.n_edges_data);
 
   # determine which vertices can have a new vertex attached to them
-  eligible_roots = [ length(p_state.vertex_map_hoods[i]) > 0 for i in 1:length(p_state.vertex_map_hoods) ]
-
-  # generate mask for edge proposals
-  induced_g, induced_vmap = induced_subgraph(s_state.G_data,p_state.vertex_map) # induced subgraph of `G_data` on vertices in current graph
-  assert( induced_vmap == p_state.vertex_map ) # make sure this behaves as expected
-  mask = adjacency_matrix(induced_g) # edges also in `p_state.graph` will create a new vertex
+  eligible_roots = [ p_state.degrees[i] < s_state.degree_data[p_state.vertex_map[i]] for i in 1:p_state.n_vertices ].*1
 
   # calculate r.w. probs (negative binomial conditional predictive distribution)
   eig_pgf = ((1 - b_lambdaPrime)^(a_lambdaPrime)).*( (1 - p_state.eigen_system.values).*((1 - b_lambdaPrime.*(1 - p_state.eigen_system.values)).^(-a_lambdaPrime)) );
   eig_pgf[ isinf(eig_pgf) ] = zero(eltype(eig_pgf)) # moore-penrose pseudoinverse
-  W = (1 - P_I_1)*Diagonal(p_state.degrees.^(-1/2)) * p_state.eigen_system.vectors * Diagonal(eig_pdf) * p_state.eigen_system.vectors' * Diagonal(p_state.degrees.^(1/2))
+  W = (1 - P_I_1)*Diagonal(p_state.degrees.^(-1/2)) * p_state.eigen_system.vectors * Diagonal(eig_pgf) * p_state.eigen_system.vectors' * Diagonal(p_state.degrees.^(1/2))
   # rwProbs = diag(degrees.^(-1/2)) * U * diag(eigenValues) * U' * diag(degrees.^(1/2));
   elMax!(W, 0) # for numerical stability
   elMin!(W, 1) # for numerical stability
 
-  new_vertex_probs = Diagonal(W) + Diagonal(vec(P_I_1*ones(size(W,1),1)))
+  adj = sparse( [p_state.edge_list[:,1], p_state.edge_list[:,2]], [p_state.edge_list[:,2], p_state.edge_list[:,1]],ones(Int64,2*p_state.t))
+  new_vertex_probs = (diag(W) .+ P_I_1 + squeeze(sum(W.*adj,2),2)).*eligible_roots
   # new_vertex_probs[ eligible_roots .== 0 ] = zero(eltype(W))
 
-  W[ mask .== 0 ] = zero(eltype(W)) # keep only the eligible edges
-  for i = 1:size(W,1) # add probability of vertex addition to eligible root vertices
-    eligible_roots[i] ? W[i,i] = new_vertex_probs[i] : nothing
-  end # there's probably a better way to do this but I can't find an easy way to access all of the diagonal elements of W
+  W_mask = GenMask(W,p_state.edge_queue[p_state.edge_active,:],p_state.vertex_unmap)
 
-  s_state.size_bias ? scale!(p_state.degrees ./ sum(p_state.degrees), W) : nothing # scale by start vertex weights
-  v_weights = squeeze(sum(W,2),2)
+  s_state.size_bias ? v_scale = p_state.degrees ./ sum(p_state.degrees), W) : vscale = 1/size(W,1) # scale by start vertex weights
+  v_weights = (squeeze(sum(W_mask,2),2) + new_vertex_probs).*v_scale
   log_total_weight = log(sum(v_weights))
-  log_total_weight += s_state.size_bias ? -log(sum(p_state.degrees)) : -log(size(W,1)) # normalize root vertex sampling
+  # log_total_weight += s_state.size_bias ? -log(sum(p_state.degrees)) : -log(size(W,1)) # normalize root vertex sampling
 
-  root_vertex = wsample(1:length(v_weights), v_weights, n_samples)
-  end_vertex = [ wsample(1:length(v_weights), W[root_vertex[j],:]) for j in 1:n_samples ]
+  root_vertex = wsample(1:length(v_weights), exp.(logSumExpWeights(v_weights)), n_samples)
+  end_vertex = [ wsample(1:length(v_weights), Array(W_mask[root_vertex[j],:] + OneHot(size(W,2),root_vertex[j])) ) for j in 1:n_samples ]
 
-  new_vertex = [ root_vertex[j]==end_vertex[j] || has_edge(p_state.graph,root_vertex[j],end_vertex[j]) for j in 1:n_samples ]
-  edge_proposals = [ (root_vertex[j], new_vertex[j]==1 ? nv(p_state.graph) + 1 : end_vertex[j]) for j in 1:n_samples ]
+  new_vertex = [ root_vertex[j]==end_vertex[j] for j in 1:n_samples ]
+  edge_proposals = [ (root_vertex[j], new_vertex[j]==1 ? p_state.n_vertices + 1 : end_vertex[j]) for j in 1:n_samples ]
   # edge_proposals_map = [ (p_state.vertex_map[root_vertex[j]], new_vertex[j]==0 ? p_state.vertex_map[end_vertex[j]] : sampleNewVertex(p_state.vertex_map_hoods[root_vertex[j]]) ) for j in 1:n_samples ]
 
   # calculate probability of proposals under model (prior)
   log_p = [ GetLogP(edge_proposals[j], new_vertex[j], p_state, s_state) for j in 1:n_samples ]
 
   # account for vertex labels of new vertices in proposal
-  log_w = -( - log_total_weight + [ new_vertex[j]==1 ? -log(length(p_state.vertex_map_hoods[root_vertex[j]])) : zero(eltype(log_p)) for j in 1:n_samples ] )
+  log_q = -( - log_total_weight + [ new_vertex[j]==1 ? -log(length(p_state.vertex_map_hoods[root_vertex[j]])) : zero(eltype(log_p)) for j in 1:n_samples ] )
 
-  return edge_proposals,log_p,log_w
+  return edge_proposals,log_p,log_q
 
 end
 

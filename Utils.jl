@@ -28,3 +28,11 @@ function logSumExpWeights(log_w::Vector{T}) where T <: AbstractFloat
   shifted_weights = log_w - max_entry
 
 end
+
+function OneHot(n::Int64,k::Int64)
+
+  onehotvector = spzeros(n)
+  onehotvector[k] = 1
+  return onehotvector
+
+end

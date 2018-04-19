@@ -46,6 +46,7 @@ struct ParticleState
   n_edges::Int64 # how many edges have been inserted
   edge_list::Array{Int64,2} # edges in order of insertion (pre-allocate)
   n_vertices::Vector{Int64}
+  new_vertex::Vector{Bool}
   # log_p::Vector{FW} # unnormalized log-importance weights corresponding to edge_list proposals
   degrees::Vector{Int64} # degree vector ?? is this needed ??
   vertex_map::Vector{Int64}  # vector where `v[j]` maps vertex `j` in the current graph to `v[j]` of the observed (final) graph
@@ -61,6 +62,7 @@ function initialize_blank_particle_state(n_edges::Int64,n_edges_max::Int64,n_ver
   ps = ParticleState(n_edges,
                       zeros(Int64,n_edges,2), # edge_list
                       zeros(Int64,1), # n_vertices
+                      [false], # new_vertex
                       zeros(Int64,n_vertices_max), # degrees
                       zeros(Int64,n_vertices_max), # vertex_map
                       zeros(Int64,n_vertices_max), # vertex_unmap
@@ -161,6 +163,7 @@ function updateParticles!(particle_container::Array{Array{ParticleState,1},1},t:
     for p = 1:length(particle_container)
       particle_container[p][1].edge_list[1,:] = s_state.data_elist[edge_idx[p],:] # add new edge
       particle_container[p][1].n_vertices[:] = 2 # update number of vertices
+      particle_container[p][1].new_vertex[:] = true # update new_vertex flag
       particle_container[p][1].degrees[1:2] = 1 # update degrees
       particle_container[p][1].vertex_map[1:2] = s_state.data_elist[edge_idx[p],:] # update vertex map
       particle_container[p][1].vertex_unmap[s_state.data_elist[edge_idx[p],:]] = [1,2] # update vertex unmap
@@ -170,8 +173,29 @@ function updateParticles!(particle_container::Array{Array{ParticleState,1},1},t:
     end
 
   else
-    particle_container[p][t].edge_list[1:(t-1),:] = particle_container[p][t-1].edge_list[1:(t-1),:]
+    T = length(particle_container[1])
+
+    particle_container[p][t].edge_list[1:(t-1),:] = particle_container[ancestors[p]][t-1].edge_list[1:(t-1),:] # copy previous edges
     particle_container[p][t].edge_list[t,:] = s_state.data_elist[sampled_edges[p],:] # add new edge
+
+    particle_container[p][t].vertex_map[:] = particle_container[ancestors[p]][t-1].vertex_map[:] # copy previous vertex_map
+    new_vertex = [!in(s_state.data_elist[sampled_edges[p],1],particle_container[p][t].vertex_map), !in(s_state.data_elist[sampled_edges[p],2],particle_container[p][t].vertex_map) )]
+    particle_container[p][t].new_vertex[:] = (new_vertex[1] || new_vertex[2])
+    particle_container[p][t].n_vertices = sum(particle_container[p][t].vertex_map > 0) + sum(new_vertex)
+    # update vertex_map
+    sum(new_vertex)==1 ? particle_container[p][t].vertex_map[particle_container[p][t].n_vertices] = s_state.data_elist[sampled_edges[p],find(new_vertex)] : nothing
+    # update vertex_unmap
+    sum(new_vertex)==1 ? particle_container[p][t].vertex_unmap[s_state.data_elist[sampled_edges[p],find(new_vertex)]] = particle_container[p][t].n_vertices
+    # update edge queue
+    particle_container[p][t].edge_queue[:] = particle_container[ancestors[p]][t-1].edge_queue[:]
+    if new_vertex # add new edges in the queue
+      # mark edges
+      vtx = s_state.data_elist[sampled_edges[p],find(new_vertex)]
+      edges_to_add = [ in(vtx,s_state.data_elist[m,:] for m=1:T ]
+      particle_container[p][t].edge_queue[edges_to_add] = true
+    end
+    particle_container[p][t].edge_queue[sampled_edges[p]] = false # remove new edge from queue
+
   end
 
 end

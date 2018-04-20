@@ -62,3 +62,25 @@ function stratifiedResample(weights::Vector{Float64},n_resample::Int64)
   end
   return sample_idx
 end
+
+
+function tally_ints(Z::Vector{Int},K::Int)
+    """
+    counts occurrences in `Z` of integers 1 to `K`
+    - `Z`: vector of integers
+    - `K`: maximum value to count occurences in `Z`
+    """
+    ret = zeros(Int,K)
+    n = size(Z,1)
+    idx_all = 1:n
+    idx_j = trues(n)
+    for j in 1:K
+      for i in idx_all[idx_j]
+        if Z[i]==j
+          ret[j] += 1
+          idx_j[i] = false
+        end
+      end
+    end
+    return ret
+end

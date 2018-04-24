@@ -1,4 +1,4 @@
-module Utils
+# utilities
 
 function elMax!{S<:Real,T<:Real}(x::Array{S},y::T)
   x[:] = max.(x,y)
@@ -25,7 +25,7 @@ function logSumExpWeights(log_w::Vector{T}) where T <: AbstractFloat
   # vector of numbers stored as logs, avoiding underflow
   max_entry = maximum(log_w)
 
-  shifted_weights = log_w - max_entry
+  shifted_weights = exp.(log_w .- max_entry)
 
 end
 
@@ -83,4 +83,66 @@ function tally_ints(Z::Vector{Int},K::Int)
       end
     end
     return ret
+end
+
+# function adj2edgelist(A::Array{Int64,2},multigraph::Bool)
+# """
+#   Convert binary adjacency matrix A to edge list
+# """
+#
+#   M,N,V = findnz(triu(A))
+#   if multigraph
+#     return hcat(M,N),V
+#   else
+#     return hcat(M,N)
+#   end
+# end
+
+function adj2edgelist(A::T where T<:Union{Array{Int64,2},SparseMatrixCSC{Int64,Int64}})
+  adj2edgelist(A,false)
+end
+
+function adj2edgelist(A::T where T<:Union{Array{Int64,2},SparseMatrixCSC{Int64,Int64}},multigraph::Bool)
+"""
+  Convert binary adjacency matrix A to edge list
+"""
+
+  M,N,V = findnz(tril(A))
+  if multigraph
+    return hcat(M,N),V
+  else
+    return hcat(M,N)
+  end
+end
+
+function edgelist2adj(edgelist::Array{Int64,2})
+"""
+  Convert binary edge list to adjacency matrix
+"""
+
+  edgelist2adj(edgelist,Int64)
+end
+
+function edgelist2adj(edgelist::Array{Int64,2},value_type::DataType)
+"""
+  Convert binary edge list to adjacency matrix
+"""
+  nv = maximum(edgelist)
+  A = sparse([edgelist[:,1];edgelist[:,2]],[edgelist[:,2];edgelist[:,1]],ones(value_type,2*size(edgelist,1)),nv,nv)
+end
+
+function normalizedLaplacian(edgelist::Array{Int64,2})
+"""
+  Construct (sparse) normalized Laplacian matrix
+"""
+  degrees = getDegrees(edgelist)
+  nv = maximum(edgelist)
+  L = sparse(1*I,nv,nv) - sparse(Diagonal( degrees.^(-1/2) )) * edgelist2adj(edgelist,Float64) * sparse(Diagonal( degrees.^(-1/2) ))
+end
+
+function getDegrees(edgelist::Array{Int64,2})
+"""
+  Compute degrees of edge list
+"""
+  return tally_ints(edgelist[:],maximum(edgelist))
 end

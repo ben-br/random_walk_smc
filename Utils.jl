@@ -117,7 +117,7 @@ end
 
 function edgelist2adj(edgelist::Array{Int64,2})
 """
-  Convert binary edge list to adjacency matrix
+  Convert edge list to binary adjacency matrix
 """
 
   edgelist2adj(edgelist,Int64)
@@ -125,7 +125,7 @@ end
 
 function edgelist2adj(edgelist::Array{Int64,2},value_type::DataType)
 """
-  Convert binary edge list to adjacency matrix
+  Convert edge list to binary adjacency matrix, with non-zero values of type value_type
 """
   nv = maximum(edgelist)
   A = sparse([edgelist[:,1];edgelist[:,2]],[edgelist[:,2];edgelist[:,1]],ones(value_type,2*size(edgelist,1)),nv,nv)

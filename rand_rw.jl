@@ -2,7 +2,7 @@
 
 using Distributions
 
-function randomWalkSimpleGraph(;n_edges::Int=100, beta_prob::AbstractFloat=0.5,length_distribution::DiscreteUnivariateDistribution=Poisson(1), sizeBias::Bool=false)
+function randomWalkSimpleGraph(;n_edges::Int=100, alpha_prob::AbstractFloat=0.5,length_distribution::DiscreteUnivariateDistribution=Poisson(1), sizeBias::Bool=false)
   # generates a simple graph from the random walk model with new vertex probability β
   # and random walk length distribution `length_distribution`
   g = zeros(Int64,n_edges,2)
@@ -13,7 +13,7 @@ function randomWalkSimpleGraph(;n_edges::Int=100, beta_prob::AbstractFloat=0.5,l
 
   min_offset = 1 - minimum(length_distribution)
 
-  coinDist = Bernoulli(beta_prob)
+  coinDist = Bernoulli(alpha_prob)
 
   for i = 2:n_edges
 

@@ -47,19 +47,21 @@ function stratifiedResample(weights::Vector{Float64},n_resample::Int64)
  indices to return
 """
   norm_weights = weights./sum(weights) # normalize
-  K = sum(norm_weights)/n_resample
-  U = rand()*K
+  buckets = collect(0.0:(1.0/n_resample):1.0)[1:n_resample]
+  locs = rand(n_resample)./n_resample .+ buckets
 
-  sample_idx = zeros(Int64,n_resample)
-  r = 0
-  for n in 1:length(weights)
-    U += -norm_weights[n]
-    if U < 0.0
-      r = r+1
-      sample_idx[r] = n
-      U += K
-    end
-  end
+  sample_idx = [ findfirst( locs[i] .<= norm_weights ) for i in 1:n_resample]
+  return sample_idx
+end
+
+function systematicResample(weights::Vector{Float64},n_resample::Int64)
+
+  norm_weights = cumsum(weights./sum(weights))
+  buckets = collect(0.0:(1.0/n_resample):1.0)[1:n_resample]
+  U = rand()*1.0/n_resample
+  locs = (buckets .+ U)
+
+  sample_idx = [ findfirst( locs[i] .<= norm_weights ) for i in 1:n_resample]
   return sample_idx
 end
 

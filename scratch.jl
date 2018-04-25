@@ -2,12 +2,14 @@
 using Distributions
 using Plots
 gr()
+# import LightGraphs
+import MAT
+
 
 include("Utils.jl")
 include("rw_smc.jl")
 include("rand_rw.jl")
 
-import MAT
 
 
 # load adjacency matrix
@@ -40,6 +42,9 @@ sb = true
 
 # sample graph
 g = randomWalkSimpleGraph(n_edges=n_edges_data,alpha_prob=α,length_distribution=ld,sizeBias=sb)
+
+# lg = LightGraphs.Graph(edgelist2adj(g))
+# LightGraphs.is_connected(lg)
 
 # set sampler parameters
 n_particles = 10

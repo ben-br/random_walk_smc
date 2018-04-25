@@ -335,9 +335,9 @@ function updateParticles!(particle_container::Array{Array{ParticleState,1},1},t:
 
       # update edge queue
       particle_container[p][t].edge_queue[:] = particle_container[ancestors[p]][t-1].edge_queue[:]
-      if any(new_vertex) # add new edges to the queue
+      if new_vertex[1] || new_vertex[2] # add new edges to the queue
         # mark edges
-        vtx = s_state.data_elist[sampled_edges[p],find(new_vertex)]
+        vtx = s_state.data_elist[sampled_edges[p],find(new_vertex)][1]
         edges_to_add = [ in(vtx,s_state.data_elist[m,:]) for m=1:T ]
         particle_container[p][t].edge_queue[edges_to_add] = true
 

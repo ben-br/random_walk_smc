@@ -1,0 +1,82 @@
+        - # random graph generating functions
+        - 
+        - using Distributions
+        - 
+        - function randomWalkSimpleGraph(;n_edges::Int=100, alpha_prob::AbstractFloat=0.5,length_distribution::DiscreteUnivariateDistribution=Poisson(1), sizeBias::Bool=false)
+        -   # generates a simple graph from the random walk model with new vertex probability β
+        -   # and random walk length distribution `length_distribution`
+    12304   g = zeros(Int64,n_edges,2)
+       96   g[1,:] = [1 2] # first edge
+        -   n = 1
+        0   nv = 2
+       96   deg = [1;1]
+        - 
+        0   min_offset = 1 - minimum(length_distribution)
+        - 
+        0   coinDist = Bernoulli(alpha_prob)
+        - 
+        0   for i = 2:n_edges
+        - 
+        0     coin = rand(coinDist)
+        0     vweights = (sizeBias ? deg : nv)
+        - 
+        0     stv = wsample(1:nv, vweights)  # sample start vertex
+        - 
+        0     if(Bool(coin)) # add a vertex
+        0       nv += 1
+     2400       g[i,:] = [stv,nv]
+        0       push!(deg,1)
+        - 
+        -     else # random walk edge
+        0       K = rand(length_distribution) + min_offset
+        0       edv = (K > 0 ? randomwalk(g[1:i-1,:], stv, K)[end] : stv)
+        - 
+        0       if edv==stv || has_edge(g[1:i-1,:], stv, edv) # new vertex
+        0         nv += 1
+     4128         g[i,:] = [stv,nv]
+        0         push!(deg,1)
+        - 
+        -       else
+     2976         g[i,:] = [stv,edv]
+        0         deg[stv] += 1
+        0         deg[edv] += 1
+        - 
+        -       end
+        - 
+        -     end
+        - 
+        -   end
+        0   return g
+        - 
+        - end
+        - 
+        - 
+        - function has_edge(edgelist::Array{Int64,2},edge::Vector{Int64})
+        - """
+        -   Checks for the directed edge in edgelist
+        - """
+        -   return any( [ edge == edgelist[i,:] for i = 1:size(edgelist,1) ] )
+        - end
+        - 
+        - function has_edge(edgelist::Array{Int64,2},v1::Int64,v2::Int64)
+        - """
+        -   Checks for the undirected edge [v1, v2] in edgelist
+        - """
+     4096   return any( [ ([v1,v2] == edgelist[i,:] || [v2,v1] == edgelist[i,:]) for i = 1:size(edgelist,1) ] )
+        - end
+        - 
+        - function randomwalk(edgelist::Array{Int64,2},start_vertex::Int64,len::Int64)
+        - 
+     3552   A = edgelist2adj(edgelist)
+        0   nv = size(A,2)
+        0   vc = start_vertex
+     9680   p = zeros(Int64,len+1)
+        0   p[1] = vc
+        0   for k = 1:len
+   244448     vn = wsample(1:nv,full(A[:,vc]))
+        0     vc = vn
+        0     p[k+1] = vc
+        -   end
+        0   return p
+        - end
+        - 

@@ -1,4 +1,5 @@
 # test bed
+cd("/Users/benjaminreddy/Documents/Code/julia/random_walk_smc/")
 using Distributions
 using Plots
 gr()
@@ -34,11 +35,11 @@ heatmap(full(edgelist2adj(g)))
 ######
 
 # set data parameters
-n_edges_data = 100
-α = 0.25
-λ = 4.0
-ld = Poisson(λ)
-sb = true
+const n_edges_data = 100
+const α = 0.25
+const λ = 4.0
+const ld = Poisson(λ)
+const sb = true
 
 # sample graph
 g = randomWalkSimpleGraph(n_edges=n_edges_data,alpha_prob=α,length_distribution=ld,sizeBias=sb)
@@ -47,14 +48,14 @@ g = randomWalkSimpleGraph(n_edges=n_edges_data,alpha_prob=α,length_distribution
 # LightGraphs.is_connected(lg)
 
 # set sampler parameters
-n_particles = 10
-a_α = 1.0
-b_α = 1.0
-a_λ = 0.25
-b_λ = 1.0
+const n_particles = 10
+const a_α = 1.0
+const b_α = 1.0
+const a_λ = 0.25
+const b_λ = 1.0
 
 # initialize empty particle container
-nv_max = maximum(g)
+nv_max = maximum(g)::Int64
 particle_container = Array{Array{ParticleState,1},1}(n_particles)
 for p in 1:n_particles
   particle_container[p] = [initialize_blank_particle_state(t,n_edges_data,nv_max) for t in 1:n_edges_data]
@@ -67,6 +68,12 @@ K_walks = rand(ld,n_edges_data)
 # initialize SamplerState
 s_state = new_sampler_state(g,sb,a_α,b_α,a_λ,b_λ,α,λ,I_coins,K_walks,particle_path)
 
+@time rw_smc!(particle_container,n_particles,s_state)
 
 # run a sweep of SMC
-rw_smc!(particle_container,n_particles,s_state)
+Profile.clear()
+@profile rw_smc!(particle_container,n_particles,s_state)
+f = open("prof_txt.txt","w")
+Profile.print(f)
+close(f)
+# @allocated rw_smc!(particle_container,n_particles,s_state)

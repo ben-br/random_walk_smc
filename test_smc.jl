@@ -28,9 +28,10 @@ const b_λ = 1.0
 
 # initialize empty particle container
 nv_max = maximum(g)::Int64
+deg_max = maximum(getDegrees(g))
 particle_container = Array{Array{ParticleState,1},1}(n_particles)
 for p in 1:n_particles
-  particle_container[p] = [initialize_blank_particle_state(t,n_edges_data,nv_max) for t in 1:n_edges_data]
+  particle_container[p] = [initialize_blank_particle_state(t,n_edges_data,deg_max,nv_max) for t in 1:n_edges_data]
 end
 
 particle_path = [initialize_blank_particle_state(t,n_edges_data,nv_max) for t in 1:n_edges_data]

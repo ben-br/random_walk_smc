@@ -172,6 +172,15 @@ function denseNormalizedLaplacian!(L::Array{Float64,2},adj::SparseMatrixCSC{Floa
   L[1:nv,1:nv] = Array(sparse(1*I,nv,nv) - sparse(Diagonal( degrees.^(-1/2) )) * adj * sparse(Diagonal( degrees.^(-1/2) )))
 end
 
+function denseNormalizedLaplacian!(L::Array{Float64,2},adj::SparseMatrixCSC{Int,Int64},degrees::Array{Float64,1},nv::Int64)
+"""
+  Construct a symmetric (dense) normalized Laplacian matrix
+"""
+  # degrees = getDegrees(edgelist)
+  # nv = maximum(edgelist)
+  L[1:nv,1:nv] = Array(sparse(1*I,nv,nv) - sparse(Diagonal( degrees.^(-1/2) )) * adj * sparse(Diagonal( degrees.^(-1/2) )))
+end
+
 function denseNormalizedLaplacian!(L::Array{Float64,2},edge_list::Array{Int64,2},degrees::Array{Float64,1},nv::Int64)
 """
   Construct a symmetric (dense) normalized Laplacian matrix. L should be all zeros.
@@ -184,10 +193,10 @@ function denseNormalizedLaplacian!(L::Array{Float64,2},edge_list::Array{Int64,2}
     L[n,n] = 1.0
   end
 
-  rt_deg = sqrt.(degrees)
+  rt_deg = degrees.^(-1/2)
   for m = 1:size(edge_list,1)
-    L[edge_list[m,1],edge_list[m,2]] = -1./(rt_deg[edge_list[m,1]]*rt_deg[edge_list[m,2]])
-    L[edge_list[m,2],edge_list[m,1]] = -1./(rt_deg[edge_list[m,1]]*rt_deg[edge_list[m,2]])
+    L[edge_list[m,1],edge_list[m,2]] = -(rt_deg[edge_list[m,1]]*rt_deg[edge_list[m,2]])
+    L[edge_list[m,2],edge_list[m,1]] = -(rt_deg[edge_list[m,1]]*rt_deg[edge_list[m,2]])
   end
 
   # L[1:nv,1:nv] = Array(sparse(1*I,nv,nv) - sparse(Diagonal( degrees.^(-1/2) )) * adj * sparse(Diagonal( degrees.^(-1/2) )))
@@ -222,12 +231,28 @@ function randomWalkProbs!(W::Array{Float64,2},nv::Int64,degrees::Array{Int64,1},
 
 end
 
-function fruitlessRWProb(W::Array{Float64,2},adj::SparseMatrixCSC{Int64,Int64},root_vtx::Int64)::Float64
+function randomWalkProbs!(W::Array{Float64,2},nv::Int64,degrees::Array{Int64,1},eig_pgf::Array{Float64,1},esys_val::Array{Float64,1},esys_vec::Array{Float64,2})
+  s = zeros(Float64,1)
+  for n = 1:nv # column index
+    for m = 1:n # row index
+      s[1] = zero(Float64)
+      for k = 1:nv
+        s[1] += esys_vec][m,k] * esys_vec[n,k] * esys_val[k]
+      end
+      W[m,n] = s[1]*sqrt(degrees[n]/degrees[m])
+      n==m ? nothing : W[n,m] = s[1]*sqrt(degrees[m]/degrees[n])
+    end
+
+  end
+
+end
+
+function fruitlessRWProb(W::Array{Float64,2},nbd_list::Array{SparseVector{Int64,Int64},1},root_vtx::Int64)::Float64
 
   p = zero(Float64)
   p += W[root_vtx,root_vtx]::Float64
 
-  rnz = nzrange(adj,root_vtx)
+  rnz = nbd_list[root_vtx].nzval
   for i in rnz
     p += W[root_vtx,i]
   end

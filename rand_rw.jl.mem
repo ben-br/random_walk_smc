@@ -5,7 +5,7 @@
         - function randomWalkSimpleGraph(;n_edges::Int=100, alpha_prob::AbstractFloat=0.5,length_distribution::DiscreteUnivariateDistribution=Poisson(1), sizeBias::Bool=false)
         -   # generates a simple graph from the random walk model with new vertex probability β
         -   # and random walk length distribution `length_distribution`
-    12304   g = zeros(Int64,n_edges,2)
+    12352   g = zeros(Int64,n_edges,2)
        96   g[1,:] = [1 2] # first edge
         -   n = 1
         0   nv = 2
@@ -24,7 +24,7 @@
         - 
         0     if(Bool(coin)) # add a vertex
         0       nv += 1
-     2400       g[i,:] = [stv,nv]
+     2688       g[i,:] = [stv,nv]
         0       push!(deg,1)
         - 
         -     else # random walk edge
@@ -33,7 +33,7 @@
         - 
         0       if edv==stv || has_edge(g[1:i-1,:], stv, edv) # new vertex
         0         nv += 1
-     4128         g[i,:] = [stv,nv]
+     3840         g[i,:] = [stv,nv]
         0         push!(deg,1)
         - 
         -       else
@@ -62,18 +62,18 @@
         - """
         -   Checks for the undirected edge [v1, v2] in edgelist
         - """
-     4096   return any( [ ([v1,v2] == edgelist[i,:] || [v2,v1] == edgelist[i,:]) for i = 1:size(edgelist,1) ] )
+     4128   return any( [ ([v1,v2] == edgelist[i,:] || [v2,v1] == edgelist[i,:]) for i = 1:size(edgelist,1) ] )
         - end
         - 
         - function randomwalk(edgelist::Array{Int64,2},start_vertex::Int64,len::Int64)
         - 
-     3552   A = edgelist2adj(edgelist)
+     3408   A = edgelist2adj(edgelist)
         0   nv = size(A,2)
         0   vc = start_vertex
-     9680   p = zeros(Int64,len+1)
+     9440   p = zeros(Int64,len+1)
         0   p[1] = vc
         0   for k = 1:len
-   244448     vn = wsample(1:nv,full(A[:,vc]))
+   244608     vn = wsample(1:nv,full(A[:,vc]))
         0     vc = vn
         0     p[k+1] = vc
         -   end

@@ -56,7 +56,7 @@
         - """
         -   Construct new sampler state object from given data and parameters
         - """
-  2108810   return SamplerState(elist_data, # edge list
+  2162746   return SamplerState(elist_data, # edge list
         -                       getDegrees(elist_data), # degrees
         -                       [size(elist_data,1)], # number of edges
         -                       [maximum(elist_data)], # number of vertices
@@ -72,7 +72,7 @@
         - 
         - function initialize_blank_particle_state(n_edges::Int64,n_edges_max::Int64,n_vertices_max::Int64)
         - 
- 41226787   ps = ParticleState([n_edges],
+ 37267823   ps = ParticleState([n_edges],
         -                       zeros(Int64,n_edges,2), # edge_list
         -                       zeros(Int64,1), # n_vertices
         -                       [false], # new_vertex
@@ -162,7 +162,7 @@
         - 
         - function rw_smc!(particle_container::Array{Array{ParticleState,1},1},n_particles::Int64,s_state::SamplerState)
         - 
-    79312   T = s_state.ne_data[1]::Int64
+  5881463   T = s_state.ne_data[1]::Int64
         0   nv_max = s_state.nv_data[1]::Int64
         -   # n_particles = length(particle_container)
         - 
@@ -177,20 +177,20 @@
         0   reset_particles!(particle_container)
         - 
         -   # pre-allocate arrays for edge probability computation
-    39312   L = zeros(Float64,nv_max,nv_max)
-    39312   W = zeros(Float64,nv_max,nv_max)
+    50336   L = zeros(Float64,nv_max,nv_max)
+    50336   W = zeros(Float64,nv_max,nv_max)
         - 
         -   # sample t=1
         0   t = one(Int64)
         0   edge_idx = sample(1:T,n_particles)::Array{Int64,1}
         0   log_weights = -log(n_particles)::Float64
-       96   updateParticles!(particle_container,t,s_state,edge_idx,zeros(Int64,1,1),-log(T)*ones(Float64,n_particles))
+      192   updateParticles!(particle_container,t,s_state,edge_idx,zeros(Int64,1,1),-log(T)*ones(Float64,n_particles))
         - 
-    80080   ancestors = zeros(Int64,T,n_particles)
+   160160   ancestors = zeros(Int64,T,n_particles)
         -   # pre-allocated arrays
-      896   n_edges_in_queue = zeros(Int64,n_particles)
-      896   edge_samples_idx = zeros(Int64,n_particles)
-      896   edge_samples = zeros(Int64,n_particles)
+     1792   n_edges_in_queue = zeros(Int64,n_particles)
+     1792   edge_samples_idx = zeros(Int64,n_particles)
+     1792   edge_samples = zeros(Int64,n_particles)
         -   # edge_proposals = zeros(Int64,T*n_particles)
         -   # edge_logp = zeros(Float64,T*n_particles)
         -   # log_w = zeros(Float64,T*n_particles)
@@ -201,12 +201,12 @@
         0     for p = 1:n_particles
         0       n_edges_in_queue[p] = sum(particle_container[p][t-1].edge_queue)
         -     end
-      896     cumu_eq = cumsum(n_edges_in_queue)::Array{Int64,1}
+   173824     cumu_eq = cumsum(n_edges_in_queue)::Array{Int64,1}
         0     total_eq = cumu_eq[end]::Int64
-    10688     edge_logp = zeros(Float64,total_eq)
-    10688     log_w = zeros(Float64,total_eq)
-    10688     lse_w = zeros(Float64,total_eq)
-    10688     edge_proposals = zeros(Int64,total_eq)
+  6329472     edge_logp = zeros(Float64,total_eq)
+  6329472     log_w = zeros(Float64,total_eq)
+  6329472     lse_w = zeros(Float64,total_eq)
+  6329472     edge_proposals = zeros(Int64,total_eq)
         -     # println(total_eq)
         - 
         -     # edge_proposals[:] = zero(Int64)
@@ -215,7 +215,7 @@
         -     # W[:] = zero(Float64)
         0     for p = 1:n_particles
         0       p==1 ? (idx = 1:cumu_eq[p]) : (idx = (cumu_eq[p-1]+1):cumu_eq[p])
-      160       edge_proposals[idx] = find(particle_container[p][t-1].edge_queue)
+  8389472       edge_proposals[idx] = find(particle_container[p][t-1].edge_queue)
         0       edge_logp[idx] = generateProposalProbsRW!(L,W,particle_container[p][t-1].n_vertices[1],particle_container[p][t-1],s_state)
         -     end
         - 
@@ -242,41 +242,40 @@
         0   for p = 1:n_particles
         0     n_edges_in_queue[p] = sum(particle_container[p][t-1].edge_queue)
         -   end
-        0   cumu_eq = cumsum(n_edges_in_queue)
+     1792   cumu_eq = cumsum(n_edges_in_queue)
         0   total_eq = cumu_eq[end]
         0   assert(total_eq <= 2*n_particles)
-        0   edge_logp = zeros(Float64,total_eq)
-        0   log_w = zeros(Float64,total_eq)
-        0   lse_w = zeros(Float64,total_eq)
-        0   edge_proposals = zeros(Int64,total_eq)
+     3616   edge_logp = zeros(Float64,total_eq)
+     3616   log_w = zeros(Float64,total_eq)
+     3616   lse_w = zeros(Float64,total_eq)
+     3616   edge_proposals = zeros(Int64,total_eq)
         - 
         -   # edge_proposals[:] = zero(Int64)
         -   # edge_logp[:] = zero(Float64)
         -   # L[:] = zero(Float64)
         -   # W[:] = zero(Float64)
-        0   last_edge_proposals = zeros(Int64,total_eq)
-        0   new_vertex = zeros(Bool,2)
-        0   temp_edge_list = zeros(Int64,t,2)
-        0   temp_edge_queue = zeros(Bool,T)
-        0   temp_vertex_unmap = zeros(Int64,nv_max)
-        0   edges_to_add = zeros(Bool,T)
-        0   temp_degrees = zeros(Float64,nv_max)
-        0   temp_nv = zeros(Int64,1)
+     3616   last_edge_proposals = zeros(Int64,total_eq)
+      192   new_vertex = zeros(Bool,2)
+     3616   temp_edge_list = zeros(Int64,t,2)
+      384   temp_edge_queue = zeros(Bool,T)
+     1088   temp_vertex_unmap = zeros(Int64,nv_max)
+      384   edges_to_add = zeros(Bool,T)
+     1088   temp_degrees = zeros(Float64,nv_max)
+      192   temp_nv = zeros(Int64,1)
         - 
         0   for p = 1:n_particles
         0     p==1 ? (idx = 1:cumu_eq[p]) : (idx = (cumu_eq[p-1]+1):cumu_eq[p])
-        0     edge_proposals[idx] = find(particle_container[p][t-1].edge_queue)
+    19200     edge_proposals[idx] = find(particle_container[p][t-1].edge_queue)
         0     edge_logp[idx] = generateProposalProbsRW!(L,W,particle_container[p][t-1].n_vertices[1],particle_container[p][t-1],s_state)
         - 
         -     # look ahead to last step for proper weighting
-        0     for i = 1:length(idx)
-        0       temp_edge_list[1:(t-1),:] .= particle_container[p][t-1].edge_list
-        0       temp_edge_list[t,:] = s_state.data_elist[[edge_proposals[idx[i]]],:]
+     6400     for i = 1:length(idx)
+  1110212       temp_edge_list[1:t,:] = [particle_container[p][t-1].edge_list; s_state.data_elist[[edge_proposals[idx[i]]],:]]
         - 
-        0       temp_edge_queue .= particle_container[p][t-1].edge_queue
-        0       temp_vertex_unmap .= particle_container[p][t-1].vertex_unmap
-        0       new_vertex[:] = (particle_container[p][t-1].vertex_unmap[s_state.data_elist[[edge_proposals[idx[i]]],:]] .== 0)
-        0       temp_nv[:] = particle_container[p][t-1].n_vertices[:] + sum(new_vertex)
+    76800       temp_edge_queue[:] = particle_container[p][t-1].edge_queue[:]
+   217600       temp_vertex_unmap[:] = particle_container[p][t-1].vertex_unmap[:]
+    38400       new_vertex[:] = (particle_container[p][t-1].vertex_unmap[s_state.data_elist[[edge_proposals[idx[i]]],:]] .== 0)
+    76800       temp_nv[:] = particle_container[p][t-1].n_vertices[:] + sum(new_vertex)
         0       if sum(new_vertex) > 0
         0         vtx = s_state.data_elist[[edge_proposals[idx[i]]],find(new_vertex)][1]::Int64
         0         temp_vertex_unmap[vtx] = sum(temp_vertex_unmap .> 0) + 1
@@ -284,13 +283,13 @@
         0         temp_edge_queue[edges_to_add] = true
         -       end
         0       temp_edge_queue[edge_proposals[idx[i]]] = false
-        0       temp_degrees .= particle_container[p][t-1].degrees
-        0       temp_degrees[temp_vertex_unmap[s_state.data_elist[[edge_proposals[idx[i]]],:]]] += 1.0
+   217600       temp_degrees[:] = particle_container[p][t-1].degrees[:]
+    76800       temp_degrees[temp_vertex_unmap[s_state.data_elist[[edge_proposals[idx[i]]],:]]] += 1.0
         - 
         -       # sum(temp_edge_queue)==1 ? nothing : error("uh oh, " * sum(temp_edge_queue))
         0       assert(sum(temp_edge_queue)==1)
         0       edge_logp[idx[i]] += generateProposalProbsRW!(L,W,temp_nv[1],temp_edge_list,temp_vertex_unmap,t,temp_degrees,temp_edge_queue,s_state)[1]
-        0       last_edge_proposals[idx[i]] = find(temp_edge_queue)[1]
+    38400       last_edge_proposals[idx[i]] = find(temp_edge_queue)[1]
         -     end
         - 
         -   end
@@ -331,43 +330,43 @@
         - 
         - function updateParticles!(particle_container::Array{Array{ParticleState,1},1},t::Int64,s_state::SamplerState,
         -             sampled_edges::Vector{Int64},ancestors::Array{Int64,2},log_w::Vector{Float64})
-     1792 """
+     5376 """
         -   Updates particle_container at step t to append newly sampled edges
         - """
         0   T = length(particle_container[1])::Int64
         - 
         0   if t==1
-     1600     for p = 1:length(particle_container)
-    45520       particle_container[p][1].edge_list[1,:] = s_state.data_elist[sampled_edges[p],:] # add new edge
-    10001       particle_container[p][1].n_vertices .= 2 # update number of vertices
-    10049       particle_container[p][1].new_vertex .= true # update new_vertex flag
-     2640       particle_container[p][1].log_w[:] = log_w[p]
-  2057973       particle_container[p][1].degrees[1:2] .= 1 # update degrees
-  1855884       particle_container[p][1].vertex_map[1:2] .= s_state.data_elist[sampled_edges[p],:] # update vertex map
- 11982066       particle_container[p][1].vertex_unmap[s_state.data_elist[sampled_edges[p],:]] .= [1,2] # update vertex unmap
+     3200     for p = 1:length(particle_container)
+    67920       particle_container[p][1].edge_list[1,:] = s_state.data_elist[sampled_edges[p],:] # add new edge
+     1040       particle_container[p][1].n_vertices[:] = 2 # update number of vertices
+     1040       particle_container[p][1].new_vertex[:] = true # update new_vertex flag
+     4240       particle_container[p][1].log_w[:] = log_w[p]
+    57047       particle_container[p][1].degrees[1:2] = 1 # update degrees
+    60736       particle_container[p][1].vertex_map[1:2] = s_state.data_elist[sampled_edges[p],:] # update vertex map
+    67872       particle_container[p][1].vertex_unmap[s_state.data_elist[sampled_edges[p],:]] = [1,2] # update vertex unmap
         -       # construct initial edge queue
-    25600       eq = [ ( in(s_state.data_elist[m,1],s_state.data_elist[sampled_edges[p],:]) || in(s_state.data_elist[m,2],s_state.data_elist[sampled_edges[p],:]) ) for m in 1:T ]::Vector{Bool}
-   871763       eq[sampled_edges[p]] .= false
-        0       particle_container[p][1].edge_queue .= eq
+    51200       eq = [ ( in(s_state.data_elist[m,1],s_state.data_elist[sampled_edges[p],:]) || in(s_state.data_elist[m,2],s_state.data_elist[sampled_edges[p],:]) ) for m in 1:T ]::Vector{Bool}
+        0       eq[sampled_edges[p]] = false
+    40736       particle_container[p][1].edge_queue[:] = eq[:]
         -     end
         - 
         -   else
-        0     new_vertex = falses(2)
-        0     for p = 1:n_particles
+    28512     new_vertex = falses(2)
+   316800     for p = 1:n_particles
         -       # update edge list
-        0       particle_container[p][t].edge_list[1:(t-1),:] .= particle_container[ancestors[t,p]][t-1].edge_list # copy previous edges
+        0       particle_container[p][t].edge_list[1:(t-1),:] = particle_container[ancestors[t,p]][t-1].edge_list[1:(t-1),:] # copy previous edges
         0       particle_container[p][t].edge_list[t,:] = s_state.data_elist[sampled_edges[p],:] # add new edge
         - 
         -       # update vertex_map
-        0       particle_container[p][t].vertex_map .= particle_container[ancestors[t,p]][t-1].vertex_map # copy previous vertex_map
-        0       new_vertex .= [ particle_container[ancestors[t,p]][t-1].vertex_unmap[s_state.data_elist[sampled_edges[p],1]]==0;
+ 10771200       particle_container[p][t].vertex_map[:] = particle_container[ancestors[t,p]][t-1].vertex_map[:] # copy previous vertex_map
+  1900800       new_vertex[:] = [ particle_container[ancestors[t,p]][t-1].vertex_unmap[s_state.data_elist[sampled_edges[p],1]]==0;
         -                       particle_container[ancestors[t,p]][t-1].vertex_unmap[s_state.data_elist[sampled_edges[p],2]]==0 ]
         -       # new_vertex = [!in(s_state.data_elist[sampled_edges[p],1],particle_container[p][t].vertex_map);
         -       #                 !in(s_state.data_elist[sampled_edges[p],2],particle_container[p][t].vertex_map) )]
         0       assert(0 <= sum(new_vertex) <= 1)
         0       particle_container[p][t].new_vertex[:] = (new_vertex[1] || new_vertex[2])
         0       particle_container[p][t].n_vertices[:] = sum(particle_container[p][t].vertex_map .> 0) + sum(new_vertex)
-        0       any(new_vertex) ? particle_container[p][t].vertex_map[particle_container[p][t].n_vertices] .= s_state.data_elist[sampled_edges[p],find(new_vertex)] : nothing
+  1183680       sum(new_vertex)==1 ? particle_container[p][t].vertex_map[particle_container[p][t].n_vertices] = s_state.data_elist[sampled_edges[p],find(new_vertex)] : nothing
         - 
         -       # update log_w
         0       particle_container[p][t].log_w[:] = log_w[p]
@@ -376,20 +375,19 @@
         0       particle_container[p][t].ancestor[:] = ancestors[t,p]
         - 
         -       # update vertex_unmap
-        0       particle_container[p][t].vertex_unmap .= particle_container[ancestors[t,p]][t-1].vertex_unmap
-        0       any(new_vertex) ? new_v = find(new_vertex)[1] : nothing
-        0       any(new_vertex) ? particle_container[p][t].vertex_unmap[particle_container[p][t].edge_list[t,new_v]] = particle_container[p][t].n_vertices[1] : nothing
+ 10771200       particle_container[p][t].vertex_unmap[:] = particle_container[ancestors[t,p]][t-1].vertex_unmap[:]
+  1183680       any(new_vertex) ? particle_container[p][t].vertex_unmap[particle_container[p][t].edge_list[t,find(new_vertex)]] = particle_container[p][t].n_vertices : nothing
         - 
         -       # update degrees
-        0       particle_container[p][t].degrees .= particle_container[ancestors[t,p]][t-1].degrees
-        0       particle_container[p][t].degrees[particle_container[p][t].vertex_unmap[particle_container[p][t].edge_list[t,:]]] += 1
+ 10771200       particle_container[p][t].degrees[:] = particle_container[ancestors[t,p]][t-1].degrees[:]
+  1900800       particle_container[p][t].degrees[particle_container[p][t].vertex_unmap[particle_container[p][t].edge_list[t,:]]] += 1
         - 
         -       # update edge queue
-        0       particle_container[p][t].edge_queue .= particle_container[ancestors[t,p]][t-1].edge_queue
+  3801600       particle_container[p][t].edge_queue[:] = particle_container[ancestors[t,p]][t-1].edge_queue[:]
         0       if new_vertex[1] || new_vertex[2] # add new edges to the queue
         -         # mark edges
-        0         vtx = s_state.data_elist[sampled_edges[p],new_v][1]::Int64
-        0         edges_to_add = [ in(vtx,s_state.data_elist[m,:]) for m=1:T ]::Vector{Bool}
+  1183680         vtx = s_state.data_elist[sampled_edges[p],find(new_vertex)][1]::Int64
+   789120         edges_to_add = [ in(vtx,s_state.data_elist[m,:]) for m=1:T ]::Vector{Bool}
         0         particle_container[p][t].edge_queue[edges_to_add] = true
         - 
         -       end
@@ -493,18 +491,18 @@
         0   b_lambdaPrime = (1/(s_state.b_λ[1] + s_state.ne_data[1]))::Float64
         - 
         -   # eigenvalue decomposition
-        0   denseNormalizedLaplacian!(L,vertex_unmap[edge_list],degrees,nv)
-        0   esys = eigfact!(Symmetric(L[1:nv,1:nv]))
-        0   esys[:values][1] = zero(Float64) # for numerical stability
-        0   esys[:values][end] = min(esys[:values][end],2.0) # for numerical stability
+        0   adj = edgelist2adj(vertex_unmap[edge_list],Float64)::SparseMatrixCSC{Float64,Int64}
+        0   denseNormalizedLaplacian!(L,adj,degrees,nv)
+1167602400   esys = eigfact(Symmetric(L[1:nv,1:nv]))
+   320000   esys[:values][1] = zero(Float64) # for numerical stability
+   642384   esys[:values][end] = min(esys[:values][end],2.0) # for numerical stability
         - 
         -   # calculate r.w. probs (negative binomial predictive distribution)
-        0   eig_pgf = zeros(Float64,nv)
+  8320816   eig_pgf = zeros(Float64,nv)
         0   nbPred!(eig_pgf,a_lambdaPrime,b_lambdaPrime,esys[:values])
         -   # eig_pgf[:] = (((1.0 - b_lambdaPrime)^(a_lambdaPrime)).*( (1.0 .- esys[:values]).*((1.0 .- b_lambdaPrime.*(1.0 .- esys[:values])).^(-a_lambdaPrime)) ))::Array{Float64,1}
         0   any(isinf.(eig_pgf)) ? eig_pgf[ isinf.(eig_pgf) ] = zero(Float64) : nothing # moore-penrose pseudoinverse
-        0   randomWalkProbs!(W,nv,degrees,eig_pgf,esys)
-        -   # W[1:nv,1:nv] = Diagonal(degrees.^(-1/2)) * esys[:vectors] * Diagonal(eig_pgf) * esys[:vectors]' * Diagonal(degrees.^(1/2))
+1488189296   W[1:nv,1:nv] = Diagonal(degrees.^(-1/2)) * esys[:vectors] * Diagonal(eig_pgf) * esys[:vectors]' * Diagonal(degrees.^(1/2))
         -   # rwProbs = diag(degrees.^(-1/2)) * U * diag(eigenValues) * U' * diag(degrees.^(1/2));
         - 
         -   # account for initial vertex choice
@@ -519,28 +517,20 @@
         0   elMin!(W[1:nv,1:nv], 1.0) # for numerical stability
         0   W[1:nv,1:nv] .= W[1:nv,1:nv]./sum(W[1:nv,1:nv]) # for numerical stability
         - 
-        0   edge_proposal_idx = find(edge_queue)::Array{Int64,1}
+  8447072   edge_proposal_idx = find(edge_queue)::Array{Int64,1}
         0   n_eligible = sum(edge_queue)::Int64
-        0   log_p = zeros(Float64,n_eligible)
+  8447072   log_p = zeros(Float64,n_eligible)
         - 
         -   # log_q = zeros(Float64,n_eligible)
         -   # edge_proposal_idx = find(p_state.eligible)
-        0   ed = zeros(Int64,2)
-        0   p_tmp = zero(Float64)
-        -   # lp = zeros(Float64,1)
-        0   adj_flag = true
+  1920000   ed = [zero(Int64); zero(Int64)]
         0   for n = 1:n_eligible
-        0     ed .= vertex_unmap[s_state.data_elist[edge_proposal_idx[n],:]]
+ 75770016     ed[:] = [ vertex_unmap[s_state.data_elist[edge_proposal_idx[n],1]]; vertex_unmap[s_state.data_elist[edge_proposal_idx[n],2]] ]
         0     if ed[1] > 0 && ed[2] > 0 # vertices not yet inserted have index 0 in current particle state
-        0       log_p[n] = log(1 - P_I_1) + log(W[ed[1],ed[2]] + W[ed[2],ed[1]])
+        0       log_p[n] = log(1 - P_I_1) + log(W[1:nv,1:nv][ed[1],ed[2]] + W[1:nv,1:nv][ed[2],ed[1]])
         -     else
-        0       if adj_flag # construct adjacency matrix
-        0         adj = edgelist2adj(vertex_unmap[edge_list],Float64)::SparseMatrixCSC{Float64,Int64}
-        0         adj_flag = false
-        -       end
-        0       root_vtx = ed[find(ed)[1]]::Int64
-        0       p_tmp = fruitlessRWProb(W,adj,root_vtx) # sum(W[ed[root_vtx],find(adj[:,ed[root_vtx]].==1.0)
-        0       log_p[n] = log(P_I_1 + (1 - P_I_1)*p_tmp ) - log(s_state.nv_data[1] - nv) # last term accounts for the "random permutation" applied to obtain the observed labels
+ 71130816       root_vtx = find([ed[1],ed[2]])[1]::Int64
+225208848       log_p[n] = log(P_I_1 + (1 - P_I_1)*(W[ed[root_vtx],ed[root_vtx]] + sum(W[ed[root_vtx],find(adj[:,ed[root_vtx]].==1.0)]) )) - log(s_state.nv_data[1] - nv) # last term accounts for the "random permutation" applied to obtain the observed labels
         -     end
         -   end
         - 

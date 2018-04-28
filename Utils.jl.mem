@@ -61,11 +61,11 @@
         -  weights is a vector of weights; n_resample is the number of resampled
         -  indices to return
         - """
-   598096   norm_weights = cumsum(weights./sum(weights)) # normalize
-    47040   buckets = collect(0.0:(1.0/n_resample):1.0)[1:n_resample]
+        0   norm_weights = cumsum(weights./sum(weights))::Vector{Float64} # normalize
+        0   buckets = collect(0.0:(1.0/n_resample):1.0)[1:n_resample]
         0   locs = rand(n_resample)./n_resample .+ buckets
         - 
-    12544   sample_idx[:] = [ findfirst( locs[i] .<= norm_weights ) for i in 1:n_resample ]
+        0   sample_idx[:] = [ findfirst( locs[i] .<= norm_weights ) for i in 1:n_resample ]
         -   # return sample_idx
         - end
         - 
@@ -150,8 +150,8 @@
         - """
         -   Convert edge list to binary adjacency matrix, with non-zero values of type value_type
         - """
-  3482186   nv = maximum(edgelist)
- 19993743   A = sparse([edgelist[:,1];edgelist[:,2]],[edgelist[:,2];edgelist[:,1]],ones(value_type,2*size(edgelist,1)),nv,nv)
+  3353866   nv = maximum(edgelist)
+  1891340   A = sparse([edgelist[:,1];edgelist[:,2]],[edgelist[:,2];edgelist[:,1]],ones(value_type,2*size(edgelist,1)),nv,nv)
         - end
         - 
         - function normalizedLaplacian(edgelist::Array{Int64,2})::SparseMatrixCSC{Int64,Int64}
@@ -169,7 +169,28 @@
         - """
         -   # degrees = getDegrees(edgelist)
         -   # nv = maximum(edgelist)
- 57591120   L[1:nv,1:nv] = Array(sparse(1*I,nv,nv) - sparse(Diagonal( degrees.^(-1/2) )) * adj * sparse(Diagonal( degrees.^(-1/2) )))
+        -   L[1:nv,1:nv] = Array(sparse(1*I,nv,nv) - sparse(Diagonal( degrees.^(-1/2) )) * adj * sparse(Diagonal( degrees.^(-1/2) )))
+        - end
+        - 
+        - function denseNormalizedLaplacian!(L::Array{Float64,2},edge_list::Array{Int64,2},degrees::Array{Float64,1},nv::Int64)
+        - """
+        -   Construct a symmetric (dense) normalized Laplacian matrix. L should be all zeros.
+        - """
+        -   # degrees = getDegrees(edgelist)
+        -   # nv = maximum(edgelist)
+        - 
+        -   # set diagonal
+        0   for n = 1:nv
+        0     L[n,n] = 1.0
+        -   end
+        - 
+        0   rt_deg = sqrt.(degrees)
+        0   for m = 1:size(edge_list,1)
+        0     L[edge_list[m,1],edge_list[m,2]] = -1./(rt_deg[edge_list[m,1],edge_list[m,2]]*rt_deg[edge_list[m,2],edge_list[m,1]])
+        0     L[edge_list[m,2],edge_list[m,1]] = -1./(rt_deg[edge_list[m,1],edge_list[m,2]]*rt_deg[edge_list[m,2],edge_list[m,1]])
+        -   end
+        - 
+        -   # L[1:nv,1:nv] = Array(sparse(1*I,nv,nv) - sparse(Diagonal( degrees.^(-1/2) )) * adj * sparse(Diagonal( degrees.^(-1/2) )))
         - end
         - 
         - function getDegrees(edgelist::Array{Int64,2})::Array{Float64,1}
@@ -181,7 +202,35 @@
         - 
         - function nbPred!(pgf::Array{Float64,1},a_lambda::Float64,b_lambda::Float64,evals::Array{Float64,1})
         - 
-    64112     pgf .= ((1.0 - b_lambda)^(a_lambda)).*( (1.0 .- evals).*((1.0 .- b_lambda.*(1.0 .- evals)).^(-a_lambda)) )
+        -     pgf .= ((1.0 - b_lambda)^(a_lambda)).*( (1.0 .- evals).*((1.0 .- b_lambda.*(1.0 .- evals)).^(-a_lambda)) )
         - 
+        - end
+        - 
+        - function randomWalkProbs!(W::Array{Float64,2},nv::Int64,degrees::Array{Int64,1},eig_pgf::Array{Float64,1},esys::Base.LinAlg.Eigen)
+        -   s = zeros(Float64,1)
+        -   for n = 1:nv # column index
+        -     for m = 1:n # row index
+        -       s[1] = zero(Float64)
+        -       for k = 1:nv
+        -         s[1] += esys[:vectors][m,k] * esys[:vectors][n,k] * esys[:values][k]
+        -       end
+        -       W[m,n] = s[1]*sqrt(degrees[n]/degrees[m])
+        -       n==m ? nothing : W[n,m] = s[1]*sqrt(degrees[m]/degrees[n])
+        -     end
+        - 
+        -   end
+        - 
+        - end
+        - 
+        - function fruitlessRWProb(W::Array{Float64,2},adj::SparseMatrixCSC{Int64,Int64},root_vtx::Int64)::Float64
+        - 
+        -   p = zero(Float64)
+        -   p += W[root_vtx,root_vtx]::Float64
+        - 
+        -   rnz = nzrange(adj,root_vtx)
+        -   for i in rnz
+        -     p += W[root_vtx,i]
+        -   end
+        -   return p
         - end
         - 

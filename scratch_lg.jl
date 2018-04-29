@@ -48,7 +48,7 @@ using Gadfly
 
 # abstract type PositiveDiscreteUnivariateDistribution <: DiscreteUnivariateDistribution
 
-function RandomWalkSimpleGraph(;n_edges::Int=100, β::AbstractFloat=0.5, length_distribution::DiscreteUnivariateDistribution=Poisson(1), sizeBias::Bool=0)::AbstractGraph
+function RandomWalkSimpleGraph(;n_edges::Int=100, β::AbstractFloat=0.5, length_distribution::DiscreteUnivariateDistribution=Poisson(1), sizeBias::Bool=false)
   # generates a simple graph from the random walk model with new vertex probability `alpha`
   # and random walk length distribution `length_distribution`
   g = Graph([ 0 1; 1 0 ])

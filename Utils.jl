@@ -16,7 +16,17 @@ function logSumExpWeightsNorm(log_w::Vector{T} where T <: AbstractFloat)
   max_entry = maximum(log_w)
 
   shifted_weights = log_w - max_entry
-  normalized_weights = exp.(shifted_weights)./sum(exp.(shifted_weights))
+  return normalized_weights = exp.(shifted_weights)./sum(exp.(shifted_weights))
+
+end
+
+function logSumExpWeightsNorm!(p::Vector{T},log_w::Vector{T} where T <: AbstractFloat)
+  # function uses log-sum-exp trick to compute normalized weights of a
+  # vector of numbers stored as logs, avoiding underflow
+  max_entry = maximum(log_w)
+
+  shifted_weights = log_w - max_entry
+  p[:] = exp.(shifted_weights)./sum(exp.(shifted_weights))
 
 end
 
@@ -154,6 +164,18 @@ function edgelist2adj(edgelist::Array{Int64,2},value_type::DataType)
   A = sparse([edgelist[:,1];edgelist[:,2]],[edgelist[:,2];edgelist[:,1]],ones(value_type,2*size(edgelist,1)),nv,nv)
 end
 
+function edgelist2adj!(A::Union{Array{Float64,2},SparseMatrixCSC{Int64,Int64},SparseMatrixCSC{Float64,Int64}},edge_list::Array{Int64,2})
+"""
+  Convert edge list to binary adjacency matrix, with non-zero values of type value_type
+"""
+  et = eltype(A)
+  for i=1:size(edge_list,1)
+    A[edge_list[i,1],edge_list[i,2]] = one(et)
+    A[edge_list[i,2],edge_list[i,1]] = one(et)
+  end
+
+end
+
 function normalizedLaplacian(edgelist::Array{Int64,2})::SparseMatrixCSC{Int64,Int64}
 """
   Construct (sparse) normalized Laplacian matrix
@@ -209,19 +231,27 @@ function getDegrees(edgelist::Array{Int64,2})::Array{Float64,1}
   return convert(Array{Float64,1},tally_ints(edgelist[:],maximum(edgelist)))
 end
 
-function nbPred!(pgf::Array{Float64,1},a_lambda::Float64,b_lambda::Float64,evals::Array{Float64,1})
+function nbPred!(pgf::Array{Float64,1},nv::Int64,a_lambda::Float64,b_lambda::Float64,evals::Union{Array{Float64,1},SparseVector{Float64,Int64}})
 
-    pgf .= ((1.0 - b_lambda)^(a_lambda)).*( (1.0 .- evals).*((1.0 .- b_lambda.*(1.0 .- evals)).^(-a_lambda)) )
+    for i=1:nv
+      pgf[i] = ((1.0 - b_lambda)^(a_lambda))*( (1.0 .- evals[i])*((1.0 - b_lambda*(1.0 - evals[i])).^(-a_lambda)) )
+    end
 
 end
 
-function randomWalkProbs!(W::Array{Float64,2},nv::Int64,degrees::Array{Int64,1},eig_pgf::Array{Float64,1},esys::Base.LinAlg.Eigen)
+# function nbPred!(pgf::Array{Float64,1},a_lambda::Float64,b_lambda::Float64,evals::SparseVector{Float64,Int64})
+#
+#     pgf .= ((1.0 - b_lambda)^(a_lambda)).*( (1.0 .- evals).*((1.0 .- b_lambda.*(1.0 .- evals)).^(-a_lambda)) )
+#
+# end
+
+function randomWalkProbs!(W::Array{Float64,2},nv::Int64,degrees::Array{Float64,1},eig_pgf::Array{Float64,1},esys::Base.LinAlg.Eigen)
   s = zeros(Float64,1)
   for n = 1:nv # column index
     for m = 1:n # row index
       s[1] = zero(Float64)
       for k = 1:nv
-        s[1] += esys[:vectors][m,k] * esys[:vectors][n,k] * esys[:values][k]
+        s[1] += esys[:vectors][m,k] * esys[:vectors][n,k] * eig_pgf[k]
       end
       W[m,n] = s[1]*sqrt(degrees[n]/degrees[m])
       n==m ? nothing : W[n,m] = s[1]*sqrt(degrees[m]/degrees[n])
@@ -231,13 +261,13 @@ function randomWalkProbs!(W::Array{Float64,2},nv::Int64,degrees::Array{Int64,1},
 
 end
 
-function randomWalkProbs!(W::Array{Float64,2},nv::Int64,degrees::Array{Int64,1},eig_pgf::Array{Float64,1},esys_val::Array{Float64,1},esys_vec::Array{Float64,2})
+function randomWalkProbs!(W::Array{Float64,2},nv::Int64,degrees::Array{Float64,1},eig_pgf::Array{Float64,1},esys_vec::Union{Array{Float64,2},SparseMatrixCSC{Float64,Int64}})
   s = zeros(Float64,1)
   for n = 1:nv # column index
     for m = 1:n # row index
       s[1] = zero(Float64)
       for k = 1:nv
-        s[1] += esys_vec][m,k] * esys_vec[n,k] * esys_val[k]
+        s[1] += esys_vec[m,k] * esys_vec[n,k] * eig_pgf[k]
       end
       W[m,n] = s[1]*sqrt(degrees[n]/degrees[m])
       n==m ? nothing : W[n,m] = s[1]*sqrt(degrees[m]/degrees[n])
@@ -257,4 +287,68 @@ function fruitlessRWProb(W::Array{Float64,2},nbd_list::Array{SparseVector{Int64,
     p += W[root_vtx,i]
   end
   return p
+end
+
+function fruitlessRWProb(W::Array{Float64,2},nbd_list::Array{Int64,2},root_vtx::Int64)::Float64
+
+  p = zero(Float64)
+  p += W[root_vtx,root_vtx]::Float64
+
+  i = 1
+  while nbd_list[root_vtx,i] > zero(Float64)
+    p += W[root_vtx,nbd_list[root_vtx,i]]
+    i += 1
+  end
+
+  return p
+end
+
+function fruitlessRWProb(W::Array{Float64,2},adj::Array{Int64,2},root_vtx::Int64,nv::Int64)::Float64
+
+  # find neighborhood of root_vtx
+  # nbd = find(adj[:,root_vtx])::Array{Float64,1}
+
+  p = zero(Float64)
+  p += W[root_vtx,root_vtx]::Float64
+
+  for i = 1:nv
+    adj[i,root_vtx]==one(Float64) ? p += W[root_vtx,i] : nothing
+  end
+  return p
+end
+
+function generateEigenSystem!(L::Array{Float64,2},nv::Int64)::Tuple{Array{Float64,1},Array{Float64,2}}
+  LL = Symmetric(L[1:nv,1:nv])
+  # THIS OVERWRITES L!
+  esys_val,esys_vec = LAPACK.syevr!('V','A',LL.uplo,LL.data,-0.0,0.0,0,0,-1.0)
+  return esys_val,esys_vec
+end
+
+function generateEigenSystem(L::Array{Float64,2},nv::Int64)::Tuple{Array{Float64,1},Array{Float64,2}}
+  Lcopy = copy(L)
+  LL = Symmetric(Lcopy[1:nv,1:nv])
+  # THIS OVERWRITES Lcopy!
+  esys_val,esys_vec = LAPACK.syevr!('V','A',LL.uplo,LL.data,-0.0,0.0,0,0,-1.0)
+
+  return esys_val,esys_vec
+end
+
+function updateEigenSystem!(L::Array{Float64,2},nv::Int64,p_state::ParticleState)
+
+  denseNormalizedLaplacian!(L,p_state.vertex_unmap[p_state.edge_list],p_state.degrees,nv)
+  LL = Symmetric(L[1:nv,1:nv])
+  # THIS OVERWRITES L!
+  esys_val,esys_vec = LAPACK.syevr!('V','A',LL.uplo,LL.data,-0.0,0.0,0,0,-1.0)
+  # esys = eigfact!(Symmetric(L[1:nv,1:nv]))
+  esys_val[1] = zero(Float64) # for numerical stability
+  esys_val[end] = min(esys_val[end],Float64(2.0)) # for numerical stability
+
+  for i=1:nv
+    p_state.eig_vals[i] = esys_val[i]
+    for j=1:nv
+      p_state.eig_vecs[j,i] = esys_vec[j,i]
+    end
+  end
+  p_state.has_eigensystem[:] = true
+
 end

@@ -1,0 +1,5 @@
+-- conditional smc step
+-- gibbs updates for I,K,alpha,lambda
+
+
+** in main function, pre-allocate matrices for smc update OUTSIDE the smc function

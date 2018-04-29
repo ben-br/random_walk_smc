@@ -48,7 +48,7 @@ g = randomWalkSimpleGraph(n_edges=n_edges_data,alpha_prob=α,length_distribution
 # LightGraphs.is_connected(lg)
 
 # set sampler parameters
-const n_particles = 10
+const n_particles = 100
 const a_α = 1.0
 const b_α = 1.0
 const a_λ = 0.25

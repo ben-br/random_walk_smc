@@ -503,7 +503,7 @@ function generateProposalProbsRW!(L::Array{Float64},W::Array{Float64,2},eig_pgf:
   # eig_pgf = zeros(Float64,nv)
   nbPred!(eig_pgf,nv,a_lambdaPrime,b_lambdaPrime,eig_vals)
   # eig_pgf[:] = (((1.0 - b_lambdaPrime)^(a_lambdaPrime)).*( (1.0 .- esys[:values]).*((1.0 .- b_lambdaPrime.*(1.0 .- esys[:values])).^(-a_lambdaPrime)) ))::Array{Float64,1}
-  any(isinf.(eig_pgf)) ? eig_pgf[ isinf.(eig_pgf) ] = zero(Float64) : nothing # moore-penrose pseudoinverse
+  # any(isinf.(eig_pgf)) ? eig_pgf[ isinf.(eig_pgf) ] = zero(Float64) : nothing # moore-penrose pseudoinverse
   randomWalkProbs!(W,nv,degrees,eig_pgf,eig_vecs)
   # W[1:nv,1:nv] = Diagonal(degrees.^(-1/2)) * esys[:vectors] * Diagonal(eig_pgf) * esys[:vectors]' * Diagonal(degrees.^(1/2))
   # rwProbs = diag(degrees.^(-1/2)) * U * diag(eigenValues) * U' * diag(degrees.^(1/2));

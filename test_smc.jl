@@ -35,11 +35,13 @@ for p in 1:n_particles
 end
 
 particle_path = [initialize_blank_particle_state(t,n_edges_data,deg_max,nv_max) for t in 1:n_edges_data]
-I_coins = rand(Bernoulli(α),n_edges_data)
+B_coins = rand(Bernoulli(α),n_edges_data)
 K_walks = rand(ld,n_edges_data)
+B_coins[1] = zero(Int64)
+K_walks[1] = zero(Int64)
 
 # initialize SamplerState
-s_state = new_sampler_state(g,sb,a_α,b_α,a_λ,b_λ,α,λ,I_coins,K_walks,particle_path)
+s_state = new_sampler_state(g,sb,a_α,b_α,a_λ,b_λ,α,λ,B_coins,K_walks,particle_path)
 
 @time rw_smc!(particle_container,n_particles,s_state)
 for p in 1:n_particles

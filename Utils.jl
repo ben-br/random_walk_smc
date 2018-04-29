@@ -235,6 +235,7 @@ function nbPred!(pgf::Array{Float64,1},nv::Int64,a_lambda::Float64,b_lambda::Flo
 
     for i=1:nv
       pgf[i] = ((1.0 - b_lambda)^(a_lambda))*( (1.0 .- evals[i])*((1.0 - b_lambda*(1.0 - evals[i])).^(-a_lambda)) )
+      isinf(pgf[i]) ? pgf[i] = zero(Float64) : nothing # Moore-Penrose pseudo-inverse
     end
 
 end
@@ -274,6 +275,40 @@ function randomWalkProbs!(W::Array{Float64,2},nv::Int64,degrees::Array{Float64,1
     end
 
   end
+
+end
+
+function randomWalkProbs!(w::Array{Float64,1},vtx_pairs::Array{Float64,2},nv::Int64,degrees::Array{Float64,1},eig_pgf::Array{Float64,1},esys_vec::Union{Array{Float64,2},SparseMatrixCSC{Float64,Int64}})::Array{Float64,1}
+"""
+  Calculate random walk probabilities for vertex pairs in `vtx_pairs`
+"""
+
+  # w = zeros(Float64,size(vtx_pairs,1),2)
+  for i in 1:size(vtx_pairs,1)
+    for k in 1:nv
+      w[i,1] += esys_vec[vtx_pairs[1],k] * esys_vec[vtx_pairs[2],k] * eig_pgf[k]
+    end
+    w[i,2] = w[vtx_pairs[1],vtx_pairs[2]]
+    w[i,1] *= sqrt(degrees[vtx_pairs[2]]/degrees[vtx_pairs[1]])
+    w[i,2] *= sqrt(degrees[vtx_pairs[1]]/degrees[vtx_pairs[2]])
+  end
+  # return w
+
+end
+
+function randomWalkProbs(root_vtx::Int64,neighbors::Array{Float64,1},nv::Int64,degrees::Array{Float64,1},eig_pgf::Array{Float64,1},esys_vec::Union{Array{Float64,2},SparseMatrixCSC{Float64,Int64}})::Float64
+"""
+  Calculate random walk probabilities for vertex pairs in `vtx_pairs`
+"""
+
+  w = zero(Float64)
+  for i in 1:length(neighbors)
+    for k in 1:nv
+      w += esys_vec[root_vtx,k] * esys_vec[neighbors[i],k] * eig_pgf[k]
+    end
+    w *= sqrt(degrees[neighbors[i]]/degrees[root_vtx])
+  end
+  return w
 
 end
 

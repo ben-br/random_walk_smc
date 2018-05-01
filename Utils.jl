@@ -9,6 +9,10 @@ function elMin!{S<:Real,T<:Real}(x::Array{S},y::T)
   x[:] = min.(x,y)
 end
 
+function resetArray!{T<:Real}(A::Array{T})
+  A[:] = zero(eltype(A))
+end
+
 
 function logSumExpWeightsNorm(log_w::Vector{T} where T <: AbstractFloat)
   # function uses log-sum-exp trick to compute normalized weights of a
@@ -284,11 +288,12 @@ function randomWalkProbs!(w::Array{Float64,1},vtx_pairs::Array{Float64,2},nv::In
 """
 
   # w = zeros(Float64,size(vtx_pairs,1),2)
+  w[:] = zero(eltype(w))
   for i in 1:size(vtx_pairs,1)
     for k in 1:nv
       w[i,1] += esys_vec[vtx_pairs[1],k] * esys_vec[vtx_pairs[2],k] * eig_pgf[k]
     end
-    w[i,2] = w[vtx_pairs[1],vtx_pairs[2]]
+    w[i,2] = w[i,1]
     w[i,1] *= sqrt(degrees[vtx_pairs[2]]/degrees[vtx_pairs[1]])
     w[i,2] *= sqrt(degrees[vtx_pairs[1]]/degrees[vtx_pairs[2]])
   end

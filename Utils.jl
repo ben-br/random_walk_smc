@@ -24,7 +24,7 @@ function logSumExpWeightsNorm(log_w::Vector{T} where T <: AbstractFloat)
 
 end
 
-function logSumExpWeightsNorm!(p::Vector{T},log_w::Vector{T} where T <: AbstractFloat)
+function logSumExpWeightsNorm!(p::Vector{T},log_w::Vector{T}) where T <: AbstractFloat
   # function uses log-sum-exp trick to compute normalized weights of a
   # vector of numbers stored as logs, avoiding underflow
   max_entry = maximum(log_w)
@@ -282,26 +282,26 @@ function randomWalkProbs!(W::Array{Float64,2},nv::Int64,degrees::Array{Float64,1
 
 end
 
-function randomWalkProbs!(w::Array{Float64,1},vtx_pairs::Array{Float64,2},nv::Int64,degrees::Array{Float64,1},eig_pgf::Array{Float64,1},esys_vec::Union{Array{Float64,2},SparseMatrixCSC{Float64,Int64}})::Array{Float64,1}
+function randomWalkProbs!(w::Array{Float64,2},vtx_pairs::Array{Int64,2},nv::Int64,degrees::Array{Float64,1},eig_pgf::Array{Float64,1},esys_vec::Union{Array{Float64,2},SparseMatrixCSC{Float64,Int64}})::Array{Float64,1}
 """
   Calculate random walk probabilities for vertex pairs in `vtx_pairs`
 """
 
   # w = zeros(Float64,size(vtx_pairs,1),2)
-  w[:] = zero(eltype(w))
+  resetArray!(w)
   for i in 1:size(vtx_pairs,1)
     for k in 1:nv
       w[i,1] += esys_vec[vtx_pairs[1],k] * esys_vec[vtx_pairs[2],k] * eig_pgf[k]
     end
-    w[i,2] = w[i,1]
-    w[i,1] *= sqrt(degrees[vtx_pairs[2]]/degrees[vtx_pairs[1]])
-    w[i,2] *= sqrt(degrees[vtx_pairs[1]]/degrees[vtx_pairs[2]])
+    w[i,2] = w[i,1]*(degrees[vtx_pairs[i,1]]/degrees[vtx_pairs[i,2]])^(0.5)
+    w[i,1] *= (degrees[vtx_pairs[i,2]]/degrees[vtx_pairs[i,1]])^(0.5)
+    # w[i,2] *= (degrees[vtx_pairs[i,1]]/degrees[vtx_pairs[i,2]])^(0.5)
   end
   # return w
 
 end
 
-function randomWalkProbs(root_vtx::Int64,neighbors::Array{Float64,1},nv::Int64,degrees::Array{Float64,1},eig_pgf::Array{Float64,1},esys_vec::Union{Array{Float64,2},SparseMatrixCSC{Float64,Int64}})::Float64
+function randomWalkProbs(root_vtx::Int64,neighbors::Array{Int64,1},nv::Int64,degrees::Array{Float64,1},eig_pgf::Array{Float64,1},esys_vec::Union{Array{Float64,2},SparseMatrixCSC{Float64,Int64}})::Float64
 """
   Calculate random walk probabilities for vertex pairs in `vtx_pairs`
 """

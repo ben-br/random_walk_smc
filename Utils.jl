@@ -1,11 +1,11 @@
 # utilities
 
-function elMax!{S<:Real,T<:Real}(x::Array{S},y::T)
+function elMax!{T<:Real}(x::Array{T},y::T)
   x[:] = max.(x,y)
 end
 
 
-function elMin!{S<:Real,T<:Real}(x::Array{S},y::T)
+function elMin!{T<:Real}(x::Array{T},y::T)
   x[:] = min.(x,y)
 end
 
@@ -263,7 +263,8 @@ function randomWalkProbs!(W::Array{Float64,2},nv::Int64,degrees::Array{Float64,1
     end
 
   end
-
+  elMax!(W,zero(Float64)) # for numerical stability
+  elMin!(W,one(Float64)) # for numerical stability
 end
 
 function randomWalkProbs!(W::Array{Float64,2},nv::Int64,degrees::Array{Float64,1},eig_pgf::Array{Float64,1},esys_vec::Union{Array{Float64,2},SparseMatrixCSC{Float64,Int64}})
@@ -279,10 +280,12 @@ function randomWalkProbs!(W::Array{Float64,2},nv::Int64,degrees::Array{Float64,1
     end
 
   end
-
+  elMax!(W,zero(Float64)) # for numerical stability
+  elMin!(W,one(Float64)) # for numerical stability
 end
 
-function randomWalkProbs!(w::Array{Float64,2},vtx_pairs::Array{Int64,2},nv::Int64,degrees::Array{Float64,1},eig_pgf::Array{Float64,1},esys_vec::Union{Array{Float64,2},SparseMatrixCSC{Float64,Int64}})::Array{Float64,1}
+function randomWalkProbs!(w::Array{Float64,2},vtx_pairs::Array{Int64,2},nv::Int64,degrees::Array{Float64,1},
+    eig_pgf::Array{Float64,1},esys_vec::Union{Array{Float64,2},SparseMatrixCSC{Float64,Int64}})
 """
   Calculate random walk probabilities for vertex pairs in `vtx_pairs`
 """
@@ -291,13 +294,16 @@ function randomWalkProbs!(w::Array{Float64,2},vtx_pairs::Array{Int64,2},nv::Int6
   resetArray!(w)
   for i in 1:size(vtx_pairs,1)
     for k in 1:nv
-      w[i,1] += esys_vec[vtx_pairs[1],k] * esys_vec[vtx_pairs[2],k] * eig_pgf[k]
+      w[i,1] += (esys_vec[vtx_pairs[i,1],k] * esys_vec[vtx_pairs[i,2],k] * eig_pgf[k])::Float64
     end
-    w[i,2] = w[i,1]*(degrees[vtx_pairs[i,1]]/degrees[vtx_pairs[i,2]])^(0.5)
-    w[i,1] *= (degrees[vtx_pairs[i,2]]/degrees[vtx_pairs[i,1]])^(0.5)
-    # w[i,2] *= (degrees[vtx_pairs[i,1]]/degrees[vtx_pairs[i,2]])^(0.5)
+
+    w[i,2] = w[i,1]*(degrees[vtx_pairs[i,1]]/degrees[vtx_pairs[i,2]])^(0.5)::Float64
+    w[i,1] *= ((degrees[vtx_pairs[i,2]]/degrees[vtx_pairs[i,1]])^(0.5))::Float64
+
+    elMax!(w,zero(Float64)) # for numerical stability
+    elMin!(w,one(Float64)) # for numerical stability
+
   end
-  # return w
 
 end
 
@@ -307,12 +313,17 @@ function randomWalkProbs(root_vtx::Int64,neighbors::Array{Int64,1},nv::Int64,deg
 """
 
   w = zero(Float64)
+  z = zeros(Float64,1)
   for i in 1:length(neighbors)
+    z[:] = zero(Float64)
     for k in 1:nv
-      w += esys_vec[root_vtx,k] * esys_vec[neighbors[i],k] * eig_pgf[k]
+      z[:] += esys_vec[root_vtx,k] * esys_vec[neighbors[i],k] * eig_pgf[k]
     end
-    w *= sqrt(degrees[neighbors[i]]/degrees[root_vtx])
+    z[:] *= sqrt(degrees[neighbors[i]]/degrees[root_vtx])::Float64
+    w += z[1]::Float64
   end
+  w = max(w,zero(Float64)) # for numerical stability
+  w = min(w,one(Float64)) # for numerical stability
   return w
 
 end

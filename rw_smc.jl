@@ -63,8 +63,11 @@ function new_sampler_state(elist_data::Array{Int64,2},
 """
   Construct new sampler state object from given data and parameters
 """
-  B[1] == zero(Int64) ? nothing : B[1] = zero(Int64)
-  K[1] == zero(Int64) ? nothing : K[1] = zero(Int64)
+  BB = copy(B)
+  KK = copy(K)
+  BB[1] == zero(Int64) ? nothing : BB[1] = zero(Int64)
+  KK[1] == zero(Int64) ? nothing : KK[1] = zero(Int64)
+  pp = copy(particle_path)
   return SamplerState(elist_data, # edge list
                       getDegrees(elist_data), # degrees
                       [size(elist_data,1)], # number of edges
@@ -72,11 +75,11 @@ function new_sampler_state(elist_data::Array{Int64,2},
                       [size_bias],
                       [a_α],[b_α],[a_λ],[b_λ], # hyper-parameters
                       [α],[λ], # parameters
-                      B, # I vector
-                      K, # K vector
-                      collect(1:(k_trunc+1)), # k_range
+                      BB, # B vector
+                      KK, # K vector
+                      collect(0:(k_trunc)), # k_range
                       [zero(Int64),one(Int64)], # b_range
-                      particle_path) # particle_path
+                      pp) # particle_path
 
 end
 
@@ -212,8 +215,8 @@ function rw_csmc!(particle_container::Array{Array{ParticleState,1},1},
                   n_particles::Int64,
                   L::Array{Float64,2},
                   W::Array{Float64,2},
-                  eig_pgf::Array{Float64,1},
-                  free_particles::Array{Int64,1}
+                  eig_pgf::Array{Float64,1}
+                  # free_particles::Array{Int64,1}
                 )
 
   T = s_state.ne_data[1]::Int64
@@ -225,7 +228,7 @@ function rw_csmc!(particle_container::Array{Array{ParticleState,1},1},
   resetArray!(L)
   resetArray!(W)
   resetArray!(eig_pgf)
-  resetArray!(free_particles)
+  # resetArray!(free_particles)
 
     # pre-allocated arrays
   ancestors = zeros(Int64,T,n_particles)
@@ -249,7 +252,9 @@ function rw_csmc!(particle_container::Array{Array{ParticleState,1},1},
   log_weights = -log(n_particles)::Float64
   updateParticles!(particle_container,t,s_state,edge_samples,zeros(Int64,1,1),-log(T)*ones(Float64,n_particles))
   ancestors[1,:] .= 1:n_particles
-  ancestors_ed[1,:] .= edge_idx
+  ancestors_ed[1,1:(s_state.particle_path[t]-1)] .= edge_idx[1:(s_state.particle_path[t]-1)]
+  ancestors_ed[1,s_state.particle_path[t]] = particle_container[s_state.particle_path[t]][t].edge_idx_list[t]
+  ancestors_ed[1,(s_state.particle_path[t]+1):end] .= edge_idx[s_state.particle_path[t]:end]
 
   for t = 2:(T-2)
 
@@ -266,7 +271,7 @@ function rw_csmc!(particle_container::Array{Array{ParticleState,1},1},
     # freeParticles!(free_particles,t,n_particles,s_state.particle_path)
     for p = 1:n_particles
       p==1 ? (idx = 1:cumu_eq[p]) : (idx = (cumu_eq[p-1]+1):cumu_eq[p])
-      dup = findfirst((ancestors_ed[t-1,p] .== ancestors_ed[t-1,:]) .* (ancestors[t-1,p] .== ancestors[t-1,:]))::Int64
+      dup = findfirst( (ancestors_ed[t-1,p] .== ancestors_ed[t-1,:]) )::Int64
       if dup==p
         edge_proposals[idx] = find(particle_container[p][t-1].edge_queue)
         edge_logp[idx] = generateProposalProbsRW!(L,W,eig_pgf,particle_container[p][t-1].n_vertices[1],particle_container[p][t-1],s_state)
@@ -275,6 +280,7 @@ function rw_csmc!(particle_container::Array{Array{ParticleState,1},1},
         resetArray!(eig_pgf)
       else # same ancestor edge
         dup==1 ? (dup_idx = 1:cumu_eq[dup]) : (dup_idx = (cumu_eq[dup-1]+1):cumu_eq[dup])
+        # println(string(p) * " idx " * string(idx) * ", " * string(dup) * " idx " * string(dup_idx))
         edge_proposals[idx] .= edge_proposals[dup_idx]
         edge_logp[idx] .= edge_logp[dup_idx]
       end
@@ -283,15 +289,18 @@ function rw_csmc!(particle_container::Array{Array{ParticleState,1},1},
     # sample edges for propogation
     logSumExpWeights!(lse_w,edge_logp)
     stratifiedResample!(free_edge_samples_idx,lse_w,n_particles-1) # index of edge in s_state.data_elist
-    free_edge_samples[:] = edge_proposals[free_edge_samples_idx]
-    fillParticles!(edge_samples,free_edge_samples,t,s_state.particle_path,particle_container) # fill in edge samples
-    fillParticleIdx!(edge_samples_idx,free_edge_samples_idx,edge_proposals,cumu_eq,t,s_state.particle_path,particle_container) # fill in edge sample indices
+    fillParticleIdx!(edge_samples_idx,free_edge_samples_idx,t,edge_proposals,cumu_eq,s_state.particle_path,particle_container) # fill in edge sample indices
 
+    # free_edge_samples[:] = edge_proposals[free_edge_samples_idx]
+    # fillParticles!(edge_samples,free_edge_samples,t,s_state.particle_path,particle_container) # fill in edge samples
+    edge_samples[:] = edge_proposals[edge_samples_idx]
     log_w[:] = edge_logp[edge_samples_idx]
 
     # keep track of ancestors
     getAncestors!(ancestors,ancestors_ed,t,edge_samples_idx,cumu_eq)
-    assert( ancestors[t,s_state.particle_path[t]]==particle_container[particle_path[t]][t].ancestor[1] )
+    # println( "step " * string(t) * ", assigned ancestor is " * string(ancestors[t,s_state.particle_path[t]]) *
+            # ", path ancestor is " * string(s_state.particle_path[t-1]) )
+    assert( ancestors[t,s_state.particle_path[t]]==s_state.particle_path[t-1] )
 
     # update particles
     updateParticles!(particle_container,t,s_state,edge_samples,ancestors,log_w)
@@ -325,7 +334,7 @@ function rw_csmc!(particle_container::Array{Array{ParticleState,1},1},
 
   for p = 1:n_particles
     p==1 ? (idx = 1:cumu_eq[p]) : (idx = (cumu_eq[p-1]+1):cumu_eq[p])
-    dup = findfirst((ancestors_ed[t-1,p] .== ancestors_ed[t-1,:]) .* (ancestors[t-1,p] .== ancestors[t-1,:]))::Int64
+    dup = findfirst( (ancestors_ed[t-1,p] .== ancestors_ed[t-1,:]) )::Int64
     if dup==p
       edge_proposals[idx] = find(particle_container[p][t-1].edge_queue)
       edge_logp[idx] = generateProposalProbsRW!(L,W,eig_pgf,particle_container[p][t-1].n_vertices[1],particle_container[p][t-1],s_state)
@@ -370,9 +379,10 @@ function rw_csmc!(particle_container::Array{Array{ParticleState,1},1},
     # sample edges for propogation
     logSumExpWeights!(lse_w,edge_logp)
     stratifiedResample!(free_edge_samples_idx,lse_w,n_particles-1) # index of edge in s_state.data_elist
-    free_edge_samples[:] = edge_proposals[free_edge_samples_idx]
-    fillParticles!(edge_samples,free_edge_samples,t,s_state.particle_path,particle_container) # fill in edge samples
-    fillParticleIdx!(edge_samples_idx,free_edge_samples_idx,edge_proposals,cumu_eq,t,s_state.particle_path,particle_container) # fill in edge sample indices
+    fillParticleIdx!(edge_samples_idx,free_edge_samples_idx,t,edge_proposals,cumu_eq,s_state.particle_path,particle_container) # fill in edge sample indices
+    # free_edge_samples[:] = edge_proposals[free_edge_samples_idx]
+    # fillParticles!(edge_samples,free_edge_samples,t,s_state.particle_path,particle_container) # fill in edge samples
+    edge_samples[:] = edge_proposals[edge_samples_idx]
 
     log_w[:] = edge_logp[edge_samples_idx]
 
@@ -382,6 +392,7 @@ function rw_csmc!(particle_container::Array{Array{ParticleState,1},1},
 
     # update particles for steps T-1 and T
     updateParticles!(particle_container,T-1,s_state,edge_samples,ancestors,log_w)
+    edge_samples[:] = last_edge_proposals[edge_samples_idx]
     updateParticles!(particle_container,T,s_state,edge_samples,ancestors,zeros(Float64,n_particles))
 
 end
@@ -432,7 +443,7 @@ function rw_smc!(particle_container::Array{Array{ParticleState,1},1},n_particles
 
     for p = 1:n_particles
       p==1 ? (idx = 1:cumu_eq[p]) : (idx = (cumu_eq[p-1]+1):cumu_eq[p])
-      dup = findfirst((ancestors_ed[t-1,p] .== ancestors_ed[t-1,:]) .* (ancestors[t-1,p] .== ancestors[t-1,:]))
+      dup = findfirst( (ancestors_ed[t-1,p] .== ancestors_ed[t-1,:]) )::Int64
       if dup==p
         edge_proposals[idx] = find(particle_container[p][t-1].edge_queue)
         edge_logp[idx] = generateProposalProbsRW!(L,W,eig_pgf,particle_container[p][t-1].n_vertices[1],particle_container[p][t-1],s_state)
@@ -538,6 +549,7 @@ function rw_smc!(particle_container::Array{Array{ParticleState,1},1},n_particles
 
   # update particles for steps T-1 and T
   updateParticles!(particle_container,T-1,s_state,edge_samples,ancestors,log_w)
+  edge_samples[:] = last_edge_proposals[edge_samples_idx]
   updateParticles!(particle_container,T,s_state,edge_samples,ancestors,zeros(Float64,n_particles))
 
 end
@@ -562,8 +574,8 @@ function getAncestors!(ancestors::Array{Int64,2},ancestors_ed::Array{Int64,2},t:
 
   for i = 1:length(es)
     ancestors[t,i] = findfirst( ceq .>= es[i] )
-    ancestors[t,i]==1 ? st_ed = zero(Int64) : st_ed = ceq[ancestors[t,i]-1]
-    ancestors_ed[t,i] = es[i] - st_ed
+    # ancestors[t,i]==1 ? st_ed = zero(Int64) : st_ed = ceq[ancestors[t,i]-1]
+    ancestors_ed[t,i] = es[i]
   end
 
 end
@@ -613,6 +625,7 @@ function updateParticles!(particle_container::Array{Array{ParticleState,1},1},t:
       eq = [ ( in(s_state.data_elist[m,1],s_state.data_elist[sampled_edges[p],:]) || in(s_state.data_elist[m,2],s_state.data_elist[sampled_edges[p],:]) ) for m in 1:T ]::Vector{Bool}
       eq[sampled_edges[p]] = false
       particle_container[p][1].edge_queue .= eq
+      particle_container[p][1].ancestor[:] = p # ancestor for book-keeping
     end
 
   else
@@ -655,7 +668,8 @@ function updateParticles!(particle_container::Array{Array{ParticleState,1},1},t:
       # update degrees
       edge_unmap .= particle_container[p][t].vertex_unmap[edge]
       particle_container[p][t].degrees .= particle_container[ancestors[t,p]][t-1].degrees
-      particle_container[p][t].degrees[edge_unmap] .+= 1
+      particle_container[p][t].degrees[edge_unmap[1]] += 1
+      particle_container[p][t].degrees[edge_unmap[2]] += 1
 
       # update neighborhoods
       particle_container[p][t].nbd_list[:] = particle_container[ancestors[t,p]][t-1].nbd_list[:]
@@ -807,16 +821,15 @@ function fillParticles!(edge_samples::Array{Int64,1},free_edge_samples::Array{In
 
 end
 
-function fillParticleIdx!(es_idx::Array{Int64,1},free_es_idx::Array{Int64,1},t::Int64,edge_proposals::Array{Int64,1},cumu_eq::Array{Int64,1},
-                          particle_path::Array{Int64,1},particle_container::Array{Array{ParticleState,1},1})
+function fillParticleIdx!(es_idx::Array{Int64,1},free_es_idx::Array{Int64,1}, t::Int64,edge_proposals::Array{Int64,1},cumu_eq::Array{Int64,1}, particle_path::Array{Int64,1},particle_container::Array{Array{ParticleState,1},1})
 
-  for i = 1:(particle_path[t])
+  for i = 1:(particle_path[t]-1)
     es_idx[i] = free_es_idx[i]
   end
 
-  p_anc = particle_path[t]::Int64
+  p_anc = particle_path[t-1]::Int64
   p_anc==1 ? st_ed = one(Int64) : st_ed = (cumu_eq[p_anc-1])::Int64
-  es_idx[p_anc] = st_ed + findfirst(particle_container[particle_container[t]][t].edge_idx_list[t] .== edge_proposals[(st_ed+1):cumu_eq[p_anc]])[1]
+  es_idx[particle_path[t]] = st_ed + findfirst( particle_container[particle_path[t]][t].edge_idx_list[t] .== edge_proposals[(st_ed+1):cumu_eq[p_anc]])
 
   for i = (particle_path[t]+1):length(es_idx)
     es_idx[i] = free_es_idx[i-1]

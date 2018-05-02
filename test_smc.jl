@@ -38,45 +38,57 @@ for p in 1:n_particles
   particle_container[p] = [initialize_blank_particle_state(t,n_edges_data,deg_max,nv_max) for t in 1:n_edges_data]
 end
 
-particle_path = zeros(Int64,n_edges_data)
+pp = zeros(Int64,n_edges_data)
 B_coins = rand(Bernoulli(α),n_edges_data)
 K_walks = rand(ld,n_edges_data)
 B_coins[1] = zero(Int64)
 K_walks[1] = zero(Int64)
 
+# pre-allocate matrices
 L = zeros(Float64,nv_max,nv_max)
+W = zeros(Float64,nv_max,nv_max)
+eig_pgf = zeros(Float64,nv_max)
 
 # initialize SamplerState
-s_state = new_sampler_state(g,sb,a_α,b_α,a_λ,b_λ,α,λ,B_coins,K_walks,k_trunc,particle_path)
+s_state = new_sampler_state(g,sb,a_α,b_α,a_λ,b_λ,α,λ,B_coins,K_walks,k_trunc,pp)
 
 @time rw_smc!(particle_container,n_particles,s_state)
+# run some checks here
 p_idx = sample(1:n_particles,1)[1]
 
 getParticlePath!(s_state.particle_path,particle_container,p_idx)
 updateBandK!(L,s_state,particle_container)
+updateAlphaAndLambda!(s_state)
 
-plot()
-for i = 1:n_particles
-    plot!(particle_container[i][n_edges_data].edge_idx_list,legend=false)
-end
+@time rw_csmc!(particle_container,s_state,n_particles,L,W,eig_pgf)
+getParticlePath!(s_state.particle_path,particle_container,p_idx)
+updateBandK!(L,s_state,particle_container)
+updateAlphaAndLambda!(s_state)
 
-for p in 1:n_particles
-  particle_container[p] = [initialize_blank_particle_state(t,n_edges_data,deg_max,nv_max) for t in 1:n_edges_data]
-end
+# using Plots
+# gr()
+# plot()
+# for i = 1:n_particles
+#     plot!(particle_container[i][n_edges_data].edge_idx_list,legend=false)
+# end
 
-function main(n_reps::Int64,particle_container::Array{Array{ParticleState,1},1},n_particles::Int64,s_state::SamplerState)
-
-    for i = 1:n_reps
-      rw_smc!(particle_container,n_particles,s_state)
-      println(marginalLogLikelihodEstimate(particle_container,n_edges_data))
-    end
-
-end
-
-@time main(5,particle_container,n_particles,s_state)
-
-particle_path = zeros(Int64,n_edges_data)
-getParticlePath!(particle_path,particle_container,5)
+# for p in 1:n_particles
+#   particle_container[p] = [initialize_blank_particle_state(t,n_edges_data,deg_max,nv_max) for t in 1:n_edges_data]
+# end
+#
+# function main(n_reps::Int64,particle_container::Array{Array{ParticleState,1},1},n_particles::Int64,s_state::SamplerState)
+#
+#     for i = 1:n_reps
+#       rw_smc!(particle_container,n_particles,s_state)
+#       println(marginalLogLikelihodEstimate(particle_container,n_edges_data))
+#     end
+#
+# end
+#
+# @time main(5,particle_container,n_particles,s_state)
+#
+# particle_path = zeros(Int64,n_edges_data)
+# getParticlePath!(particle_path,particle_container,5)
 
 # Profile.clear()
 # @profile rw_smc!(particle_container,n_particles,s_state)

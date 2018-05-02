@@ -250,22 +250,22 @@ end
 #
 # end
 
-function randomWalkProbs!(W::Array{Float64,2},nv::Int64,degrees::Array{Float64,1},eig_pgf::Array{Float64,1},esys::Base.LinAlg.Eigen)
-  s = zeros(Float64,1)
-  for n = 1:nv # column index
-    for m = 1:n # row index
-      s[1] = zero(Float64)
-      for k = 1:nv
-        s[1] += esys[:vectors][m,k] * esys[:vectors][n,k] * eig_pgf[k]
-      end
-      W[m,n] = s[1]*sqrt(degrees[n]/degrees[m])
-      n==m ? nothing : W[n,m] = s[1]*sqrt(degrees[m]/degrees[n])
-    end
-
-  end
-  elMax!(W,zero(Float64)) # for numerical stability
-  elMin!(W,one(Float64)) # for numerical stability
-end
+# function randomWalkProbs!(W::Array{Float64,2},nv::Int64,degrees::Array{Float64,1},eig_pgf::Array{Float64,1},esys::Base.LinAlg.Eigen)
+#   s = zeros(Float64,1)
+#   for n = 1:nv # column index
+#     for m = 1:n # row index
+#       s[1] = zero(Float64)
+#       for k = 1:nv
+#         s[1] += esys[:vectors][m,k] * esys[:vectors][n,k] * eig_pgf[k]
+#       end
+#       W[m,n] = s[1]*sqrt(degrees[n]/degrees[m])
+#       n==m ? nothing : W[n,m] = s[1]*sqrt(degrees[m]/degrees[n])
+#     end
+#
+#   end
+#   elMax!(W,zero(Float64)) # for numerical stability
+#   elMin!(W,one(Float64)) # for numerical stability
+# end
 
 function randomWalkProbs!(W::Array{Float64,2},nv::Int64,degrees::Array{Float64,1},eig_pgf::Array{Float64,1},esys_vec::Union{Array{Float64,2},SparseMatrixCSC{Float64,Int64}})
   s = zeros(Float64,1)
@@ -273,7 +273,7 @@ function randomWalkProbs!(W::Array{Float64,2},nv::Int64,degrees::Array{Float64,1
     for m = 1:n # row index
       s[1] = zero(Float64)
       for k = 1:nv
-        s[1] += esys_vec[m,k] * esys_vec[n,k] * eig_pgf[k]
+        s[1] += esys_vec[k,m] * esys_vec[k,n] * eig_pgf[k]
       end
       W[m,n] = s[1]*sqrt(degrees[n]/degrees[m])
       n==m ? nothing : W[n,m] = s[1]*sqrt(degrees[m]/degrees[n])
@@ -294,7 +294,7 @@ function randomWalkProbs!(w::Array{Float64,2},vtx_pairs::Array{Int64,2},nv::Int6
   resetArray!(w)
   for i in 1:size(vtx_pairs,1)
     for k in 1:nv
-      w[i,1] += (esys_vec[vtx_pairs[i,1],k] * esys_vec[vtx_pairs[i,2],k] * eig_pgf[k])::Float64
+      w[i,1] += (esys_vec[k,vtx_pairs[i,1]] * esys_vec[k,vtx_pairs[i,2]] * eig_pgf[k])::Float64
     end
 
     w[i,2] = w[i,1]*(degrees[vtx_pairs[i,1]]/degrees[vtx_pairs[i,2]])^(0.5)::Float64
@@ -314,10 +314,10 @@ function randomWalkProbs(root_vtx::Int64,neighbors::Array{Int64,1},nv::Int64,deg
 
   w = zero(Float64)
   z = zeros(Float64,1)
-  for i in 1:length(neighbors)
+  for i in 1:convert(Int64,degrees[root_vtx])
     z[:] = zero(Float64)
     for k in 1:nv
-      z[:] += esys_vec[root_vtx,k] * esys_vec[neighbors[i],k] * eig_pgf[k]
+      z[:] += esys_vec[k,root_vtx] * esys_vec[k,neighbors[i]] * eig_pgf[k]
     end
     z[:] *= sqrt(degrees[neighbors[i]]/degrees[root_vtx])::Float64
     w += z[1]::Float64
@@ -370,18 +370,23 @@ end
 
 function generateEigenSystem!(L::Array{Float64,2},nv::Int64)::Tuple{Array{Float64,1},Array{Float64,2}}
   LL = Symmetric(L[1:nv,1:nv])
+  eigvec_tr = zeros(Float64,nv,nv)
   # THIS OVERWRITES L!
   esys_val,esys_vec = LAPACK.syevr!('V','A',LL.uplo,LL.data,-0.0,0.0,0,0,-1.0)
-  return esys_val,esys_vec
+  transpose!(eigvec_tr,esys_vec) # transposed to optimize computation
+
+  return esys_val,eigvec_tr
 end
 
 function generateEigenSystem(L::Array{Float64,2},nv::Int64)::Tuple{Array{Float64,1},Array{Float64,2}}
   Lcopy = copy(L)
   LL = Symmetric(Lcopy[1:nv,1:nv])
+  eigvec_tr = zeros(Float64,nv,nv)
   # THIS OVERWRITES Lcopy!
   esys_val,esys_vec = LAPACK.syevr!('V','A',LL.uplo,LL.data,-0.0,0.0,0,0,-1.0)
+  transpose!(eigvec_tr,esys_vec) # transposed to optimize computation
 
-  return esys_val,esys_vec
+  return esys_val,eigvec_tr
 end
 
 function updateEigenSystem!(L::Array{Float64,2},nv::Int64,p_state::ParticleState)
@@ -397,9 +402,23 @@ function updateEigenSystem!(L::Array{Float64,2},nv::Int64,p_state::ParticleState
   for i=1:nv
     p_state.eig_vals[i] = esys_val[i]
     for j=1:nv
-      p_state.eig_vecs[j,i] = esys_vec[j,i]
+      # THIS TRANSPOSES THE EIGENVECTOR MATRIX TO OPTIMIZE COMPUTATION
+      # ROWS OF p_state.eig_vecs CORRESPOND TO EIGENVECTORS OF L
+      p_state.eig_vecs[j,i] = esys_vec[i,j]
     end
   end
   p_state.has_eigensystem[:] = true
+
+end
+
+function saveSamples!(alpha_samples::Array{Float64,1},lambda_samples::Array{Float64,1},
+                      particle_trajectory_samples::Array{Int64,2},edge_sequence_samples::Array{Int64,2},
+                      s_state::SamplerState,particle_container::Array{Array{ParticleState,1},1},
+                      p_idx::Int64,n_sample::Int64)
+
+  alpha_samples[n_sample] = s_state.α[1]
+  lambda_samples[n_sample] = s_state.λ[1]
+  particle_trajectory_samples[n_sample,:] = s_state.particle_path[:]
+  edge_sequence_samples[n_sample,:] = particle_container[p_idx][end].edge_idx_list[:]
 
 end

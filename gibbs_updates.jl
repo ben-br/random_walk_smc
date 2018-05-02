@@ -12,7 +12,14 @@ function calculatePredictiveParams(s_state::SamplerState,B_sum::Float64,K_sum::F
 
 end
 
-function updateBandK!(L::Array{Float64,2},s_state::SamplerState,particle_container::Array{Array{ParticleState,1},1})
+function updateBandK!(s_state::SamplerState,particle_container::Array{Array{ParticleState,1},1},
+                      L::Array{Float64,2},
+                      eig_pgf::Array{Float64,1},
+                      lp_b::Array{Float64,1},
+                      p_b::Array{Float64,1},
+                      lp_k::Array{Float64,1},
+                      p_k::Array{Float64,1}
+                      )
 
   T = s_state.ne_data[1]
   particle_path = s_state.particle_path
@@ -31,13 +38,14 @@ function updateBandK!(L::Array{Float64,2},s_state::SamplerState,particle_contain
   edge = zeros(Int64,1,2)
   rwp = zeros(Float64,1,2)
   frwp = zeros(Float64,1)
-  eig_pgf = zeros(Float64,s_state.nv_data[1])
+  # eig_pgf = zeros(Float64,s_state.nv_data[1])
   root_vtx = zeros(Int64,1)
+  nbd = zeros(Int64,size(s_state.nbd_list,1)+1)
 
-  p_k = zeros(Float64,num_k)
-  lp_k = zeros(Float64,num_k)
-  p_b = zeros(Float64,2)
-  lp_b = zeros(Float64,2)
+  # p_k = zeros(Float64,num_k)
+  # lp_k = zeros(Float64,num_k)
+  # p_b = zeros(Float64,2)
+  # lp_b = zeros(Float64,2)
 
   for t in t_order
 
@@ -45,6 +53,9 @@ function updateBandK!(L::Array{Float64,2},s_state::SamplerState,particle_contain
 
       resetArray!(lp_k)
       resetArray!(lp_b)
+      resetArray!(p_k)
+      resetArray!(p_b)
+      resetArray!(nbd)
 
       # update sufficient statistics, predictive parameters
       K_sum += -s_state.K[t]
@@ -67,7 +78,7 @@ function updateBandK!(L::Array{Float64,2},s_state::SamplerState,particle_contain
         end
         nbPred!(eig_pgf,nv_tm1,ap_lambda,bp_lambda,particle_tm1.eig_vals)
         # get zero-one ball
-        nbd = [edge[root_vtx[1]]; particle_tm1.nbd_list[edge[root_vtx[1]],1:convert(Int64,particle_tm1.degrees[edge[root_vtx[1]]])]]::Array{Int64,1}
+        nbd[:] = [edge[root_vtx[1]]; particle_tm1.nbd_list[:,edge[root_vtx[1]]]]::Array{Int64,1}
         # calculate fruitless random walk probs
         # if edge[root_vtx[1]]==0
         #   println("root is equal to 0, step" * string(t))
@@ -150,10 +161,5 @@ function updateAlphaAndLambda!(s_state::SamplerState)
   K_sum = sum(s_state.K)
   s_state.α[:] = rand(Beta(s_state.a_α[1] + B_sum, s_state.b_α[1] + s_state.ne_data[1] - 1 - B_sum))
   s_state.λ[:] = rand(Gamma(s_state.a_λ[1] + K_sum, 1/(s_state.b_λ[1] + s_state.ne_data[1] - 1)))
-
-end
-
-
-function saveSamples!()
 
 end

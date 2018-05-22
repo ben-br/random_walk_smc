@@ -40,7 +40,7 @@ function updateBandK!(s_state::SamplerState,particle_container::Array{Array{Part
   frwp = zeros(Float64,1)
   # eig_pgf = zeros(Float64,s_state.nv_data[1])
   root_vtx = zeros(Int64,1)
-  nbd = zeros(Int64,size(s_state.nbd_list,1)+1)
+  nbd = zeros(Int64,size(particle_container[1][1].nbd_list,1)+1)
 
   # p_k = zeros(Float64,num_k)
   # lp_k = zeros(Float64,num_k)
@@ -90,8 +90,8 @@ function updateBandK!(s_state::SamplerState,particle_container::Array{Array{Part
         frwp[:] = randomWalkProbs(edge[root_vtx[1]],nbd,nv_tm1,particle_tm1.degrees,eig_pgf,particle_tm1.eig_vecs)::Float64
         # println("b " * string(t) * " " * string(frwp[1]))
 
-        lp_b[2] = log(ap_alpha) - log(ap_alpha + bp_alpha)
-        lp_b[1] = log(bp_alpha) - log(ap_alpha + bp_alpha) + log(frwp[1])
+        lp_b[2] = (log(ap_alpha) - log(ap_alpha + bp_alpha))::Float64
+        lp_b[1] = (log(bp_alpha) - log(ap_alpha + bp_alpha) + log(frwp[1]))::Float64
         logSumExpWeightsNorm!(p_b,lp_b)
         s_state.B[t] = wsample(b_range,p_b)
 
@@ -100,14 +100,14 @@ function updateBandK!(s_state::SamplerState,particle_container::Array{Array{Part
           for i = 1:nv_tm1
             k==zero(Int64) ? eig_pgf[i] = (1.0 - particle_tm1.eig_vals[i])::Float64 : eig_pgf[i] *= (1.0 - particle_tm1.eig_vals[i])
           end
-          frwp[:] = randomWalkProbs(edge[root_vtx[1]],nbd,nv_tm1,particle_tm1.degrees,eig_pgf,particle_tm1.eig_vecs)
+          frwp[:] = randomWalkProbs(edge[root_vtx[1]],nbd,nv_tm1,particle_tm1.degrees,eig_pgf,particle_tm1.eig_vecs)::Float64
           # println("k " * string(t) * " " * string(k) * " " * string(frwp[1]))  # NEGATIVE???
           # if isnan(frwp[1])
           #   println("nan frwp " * string(t) * " root " * string(edge[root_vtx[1]]) * " nbd " * string(nbd))
           # end
-          lp_k[k+1] = lgamma(k + ap_lambda) - lgamma(k + 1) - lgamma(ap_lambda) + k*log(bp_lambda) +
+          lp_k[k+1] = (lgamma(k + ap_lambda) - lgamma(k + 1) - lgamma(ap_lambda) + k*log(bp_lambda) +
                         log( ap_alpha/(ap_alpha + bp_alpha) +
-                            (bp_alpha/(ap_alpha + bp_alpha))*frwp[1] )
+                            (bp_alpha/(ap_alpha + bp_alpha))*frwp[1] ))::Float64
         end
         logSumExpWeightsNorm!(p_k,lp_k)
         s_state.K[t] = wsample(k_range,p_k) # range is 0:k_trunc
@@ -127,7 +127,7 @@ function updateBandK!(s_state::SamplerState,particle_container::Array{Array{Part
 
         for k in k_range
           for i = 1:nv_tm1
-            k==zero(Int64) ? eig_pgf[i] = (1.0 - particle_tm1.eig_vals[i]) : eig_pgf[i] *= (1.0 - particle_tm1.eig_vals[i])
+            k==zero(Int64) ? eig_pgf[i] = (1.0 - particle_tm1.eig_vals[i])::Float64 : eig_pgf[i] *= (1.0 - particle_tm1.eig_vals[i])::Float64
           end
 
           edge[:] = particle_t.vertex_unmap[particle_t.edge_list[t,:]]
@@ -136,9 +136,9 @@ function updateBandK!(s_state::SamplerState,particle_container::Array{Array{Part
           # if any(rwp .<= 0)
           #     println("neg rwp " * string(rwp))
           # end
-          lp_k[k+1] = lgamma(ap_lambda + k) - lgamma(k + 1) - lgamma(ap_lambda) + k*log(bp_lambda) +
+          lp_k[k+1] = (lgamma(ap_lambda + k) - lgamma(k + 1) - lgamma(ap_lambda) + k*log(bp_lambda) +
                       log(bp_alpha) - log(ap_alpha + bp_alpha) +
-                      log( particle_tm1.degrees[edge[1]]*rwp[1] + particle_tm1.degrees[edge[2]]*rwp[2] )
+                      log( particle_tm1.degrees[edge[1]]*rwp[1] + particle_tm1.degrees[edge[2]]*rwp[2] ))::Float64
         end
         logSumExpWeightsNorm!(p_k,lp_k)
         s_state.K[t] = wsample(k_range,p_k) # range is 0:k_trunc
@@ -159,7 +159,7 @@ function updateAlphaAndLambda!(s_state::SamplerState)
 
   B_sum = sum(s_state.B)
   K_sum = sum(s_state.K)
-  s_state.α[:] = rand(Beta(s_state.a_α[1] + B_sum, s_state.b_α[1] + s_state.ne_data[1] - 1 - B_sum))
-  s_state.λ[:] = rand(Gamma(s_state.a_λ[1] + K_sum, 1/(s_state.b_λ[1] + s_state.ne_data[1] - 1)))
+  s_state.α[:] = rand(Beta(s_state.a_α[1] + B_sum, s_state.b_α[1] + s_state.ne_data[1] - 1 - B_sum))::Float64
+  s_state.λ[:] = rand(Gamma(s_state.a_λ[1] + K_sum, 1/(s_state.b_λ[1] + s_state.ne_data[1] - 1)))::Float64
 
 end

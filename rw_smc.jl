@@ -462,7 +462,7 @@ function rw_smc!(particle_container::Array{Array{ParticleState,1},1},n_particles
         edge_logp[idx] = generateProposalProbsRW!(L,W,eig_pgf,particle_container[p][t-1].n_vertices[1],particle_container[p][t-1],s_state)
         resetArray!(L)
         resetArray!(W)
-        eig_pgf[:] = zero(Float64)
+        resetArray!(eig_pgf)
       else # same ancestor edge
         dup==1 ? (dup_idx = 1:cumu_eq[dup]) : (dup_idx = (cumu_eq[dup-1]+1):cumu_eq[dup])
         edge_proposals[idx] .= edge_proposals[dup_idx]
@@ -772,10 +772,10 @@ function generateProposalProbsRW!(L::Array{Float64},W::Array{Float64,2},eig_pgf:
   edge_proposal_idx = find(edge_queue)::Array{Int64,1}
   n_eligible = sum(edge_queue)::Int64
   log_p = zeros(Float64,n_eligible)
-  ed = zeros(Int64,2)
+  ed = zeros(Int64,1,2)
   p_tmp = zero(Float64)
   log_labelprob = log(s_state.nv_data[1] - nv)::Float64
-  w = zeros(Float64,2)
+  w = zeros(Float64,1,2)
   frwp = zeros(Float64,1)
   nbd = zeros(Int64,size(nbd_list,1)+1)
 
@@ -783,11 +783,11 @@ function generateProposalProbsRW!(L::Array{Float64},W::Array{Float64,2},eig_pgf:
     edgelist2adj!(L,vertex_unmap[edge_list]) # L is used for adjacency matrix
   end
   for n = 1:n_eligible
-    ed .= vertex_unmap[s_state.data_elist[edge_proposal_idx[n],:]]
+    ed[:] = vertex_unmap[s_state.data_elist[edge_proposal_idx[n],:]]
     if ed[1] > 0 && ed[2] > 0 # vertices not yet inserted have index 0 in current particle state
       randomWalkProbs!(w,ed,nv,degrees,eig_pgf,eig_vecs)
-      s_state.size_bias[1] ? (w[:] *= (degrees[ed]./(2*n_edges))) : (w[:] *= 1/nv)
-      log_p[n] = (log(1 - P_I_1) + log(sum(w))::Float64
+      s_state.size_bias[1] ? (w .*= (degrees[ed]./(2*n_edges))) : (w[:] *= 1/nv)
+      log_p[n] = (log(1 - P_I_1) + log(sum(w)))::Float64
     else
       root_vtx = ed[ed .> 0][1]::Int64
       if(!isempty(nbd_list))
@@ -798,7 +798,7 @@ function generateProposalProbsRW!(L::Array{Float64},W::Array{Float64,2},eig_pgf:
       frwp[:] = randomWalkProbs(root_vtx,nbd,nv,degrees,eig_pgf,eig_vecs)
       s_state.size_bias[1] ? (frwp[:] *= degrees[root_vtx]/(2*n_edges)) : (frwp[:] *= 1/nv)
       # isempty(nbd_list) ? p_tmp = fruitlessRWProb(W,L,root_vtx,nv)::Float64 : p_tmp = fruitlessRWProb(W,nbd_list,root_vtx)::Float64
-      log_p[n] = (log(P_I_1 + (1 - P_I_1)*p_tmp ) - log_labelprob)::Float64 # last term accounts for the "random permutation" applied to obtain the observed labels
+      log_p[n] = (log(P_I_1 + (1 - P_I_1)*frwp[1] ) - log_labelprob)::Float64 # last term accounts for the "random permutation" applied to obtain the observed labels
     end
   end
 

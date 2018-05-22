@@ -315,11 +315,11 @@ function randomWalkProbs(root_vtx::Int64,neighbors::Array{Int64,1},nv::Int64,deg
   w = zero(Float64)
   z = zeros(Float64,1)
   for i in 1:convert(Int64,degrees[root_vtx])
-    z[:] = zero(Float64)
+    z[:] = zero(Float64) # reset z
     for k in 1:nv
-      z[:] += esys_vec[k,root_vtx] * esys_vec[k,neighbors[i]] * eig_pgf[k]
+      z[1] += (esys_vec[k,root_vtx] * esys_vec[k,neighbors[i]] * eig_pgf[k])::Float64
     end
-    z[:] *= sqrt(degrees[neighbors[i]]/degrees[root_vtx])::Float64
+    z[1] *= sqrt(degrees[neighbors[i]]/degrees[root_vtx])::Float64
     w += z[1]::Float64
   end
   w = max(w,zero(Float64)) # for numerical stability

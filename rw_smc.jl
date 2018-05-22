@@ -783,19 +783,26 @@ function generateProposalProbsRW!(L::Array{Float64},W::Array{Float64,2},eig_pgf:
     edgelist2adj!(L,vertex_unmap[edge_list]) # L is used for adjacency matrix
   end
   for n = 1:n_eligible
+    resetArray!(nbd)
+    resetArray!(ed)
+    resetArray!(w)
     ed[:] = vertex_unmap[s_state.data_elist[edge_proposal_idx[n],:]]
     if ed[1] > 0 && ed[2] > 0 # vertices not yet inserted have index 0 in current particle state
       randomWalkProbs!(w,ed,nv,degrees,eig_pgf,eig_vecs)
       s_state.size_bias[1] ? (w .*= (degrees[ed]./(2*n_edges))) : (w[:] *= 1/nv)
       log_p[n] = (log(1 - P_I_1) + log(sum(w)))::Float64
     else
-      root_vtx = ed[ed .> 0][1]::Int64
+      root_vtx = findfirst(ed .> 0)::Int64
+      # nbd[1] = root_vtx
       if(!isempty(nbd_list))
-        nbd[:] = [root_vtx; nbd_list[:,root_vtx]]
+        nbd[:] = nbd_list[:,root_vtx]
+        # nbd[:] = [root_vtx; nbd_list[:,root_vtx]]
       else
-        nbd[:] = [root_vtx; find( L[:,root_vtx] .> 0 ); zeros(Int64,length(nbd) - degrees[root_vtx])]
+        nb = find( L[:,root_vtx] .> 0 ) # here, L is the adjacency matrix
+        nbd[1:numel(nb)] = nb
       end
-      frwp[:] = randomWalkProbs(root_vtx,nbd,nv,degrees,eig_pgf,eig_vecs)
+      randomWalkProbs!(w,[root_vtx;root_vtx],nv,degrees,eig_pgf,eig_vecs) # prob of ending where it starts
+      frwp[1] = randomWalkProbs(root_vtx,nbd,nv,degrees,eig_pgf,eig_vecs) + w[1] # prob of fruitless r.w.
       s_state.size_bias[1] ? (frwp[:] *= degrees[root_vtx]/(2*n_edges)) : (frwp[:] *= 1/nv)
       # isempty(nbd_list) ? p_tmp = fruitlessRWProb(W,L,root_vtx,nv)::Float64 : p_tmp = fruitlessRWProb(W,nbd_list,root_vtx)::Float64
       log_p[n] = (log(P_I_1 + (1 - P_I_1)*frwp[1] ) - log_labelprob)::Float64 # last term accounts for the "random permutation" applied to obtain the observed labels

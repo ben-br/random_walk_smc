@@ -829,7 +829,7 @@ function generateProposalProbsRW!(L::Array{Float64},W::Array{Float64,2},eig_pgf:
         nbd[1:length(nb)] = nb
       end
       randomWalkProbs!(w,rt,nv,degrees,eig_pgf,eig_vecs) # prob of ending where it starts
-      frwp[1] = randomWalkProbs(root_vtx,nbd,nv,degrees,eig_pgf,eig_vecs) + w[1] # prob of fruitless r.w.
+      frwp[1] = (randomWalkProbs(root_vtx,nbd,nv,degrees,eig_pgf,eig_vecs) + w[1])::Float64 # prob of fruitless r.w.
       s_state.size_bias[1] ? (frwp[:] *= degrees[root_vtx]/(2*n_edges)) : (frwp[:] *= 1/nv)
       # isempty(nbd_list) ? p_tmp = fruitlessRWProb(W,L,root_vtx,nv)::Float64 : p_tmp = fruitlessRWProb(W,nbd_list,root_vtx)::Float64
       log_p[n] = (log(P_I_1 + (1 - P_I_1)*frwp[1] ) - log_labelprob)::Float64 # last term accounts for the "random permutation" applied to obtain the observed labels

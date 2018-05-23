@@ -11,7 +11,7 @@ include("gibbs_updates.jl")
 srand(0)
 
 # set data parameters
-const n_edges_data = 100
+const n_edges_data = 50
 const α = 0.25
 const λ = 4.0
 const ld = Poisson(λ)
@@ -25,7 +25,7 @@ lg = LightGraphs.Graph(edgelist2adj(g))
 lg_diam = LightGraphs.diameter(lg)::Int64
 
 # set sampler parameters
-const n_mcmc_iter = 100 # total number of iterations; includes burn-in
+const n_mcmc_iter = 500 # total number of iterations; includes burn-in
 const n_burn = 0 # burn-in
 const n_collect = 1 # collect a sample every n_collect iterations
 n_print = 1 # print progress updates every n_print iteration
@@ -136,7 +136,7 @@ using Plots
 gr()
 plot(lambda_samples,legend=false)
 plot(alpha_samples,legend=false)
-plot!(edge_sequence_samples',legend=false)
+plot(edge_sequence_samples',legend=false)
 
 # updateBandK!(L,s_state,particle_container)
 # updateAlphaAndLambda!(s_state)

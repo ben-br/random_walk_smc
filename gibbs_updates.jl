@@ -40,7 +40,9 @@ function updateBandK!(s_state::SamplerState,particle_container::Array{Array{Part
   frwp = zeros(Float64,1)
   # eig_pgf = zeros(Float64,s_state.nv_data[1])
   root_vtx = zeros(Int64,1)
-  nbd = zeros(Int64,size(particle_container[1][1].nbd_list,1)+1)
+  rt = zeros(Int64,1,2)
+  w = zeros(Float64,1,2)
+  nbd = zeros(Int64,size(particle_container[1][1].nbd_list,1))
 
   # p_k = zeros(Float64,num_k)
   # lp_k = zeros(Float64,num_k)
@@ -56,6 +58,7 @@ function updateBandK!(s_state::SamplerState,particle_container::Array{Array{Part
       resetArray!(p_k)
       resetArray!(p_b)
       resetArray!(nbd)
+      resetArray!(w)
 
       # update sufficient statistics, predictive parameters
       K_sum += -s_state.K[t]
@@ -71,6 +74,7 @@ function updateBandK!(s_state::SamplerState,particle_container::Array{Array{Part
         # update B_t
         edge[:] = particle_t.vertex_unmap[particle_t.edge_list[t,:]]
         root_vtx[:] = find( particle_tm1.vertex_map[edge] .> 0)::Array{Int64,1}
+        rt[:] = edge[root_vtx[1]]
         # assert(countnz(root_vtx)==1)
         if !particle_tm1.has_eigensystem[1]
           updateEigenSystem!(L,nv_tm1,particle_tm1)
@@ -78,7 +82,9 @@ function updateBandK!(s_state::SamplerState,particle_container::Array{Array{Part
         end
         nbPred!(eig_pgf,nv_tm1,ap_lambda,bp_lambda,particle_tm1.eig_vals)
         # get zero-one ball
-        nbd[:] = [edge[root_vtx[1]]; particle_tm1.nbd_list[:,edge[root_vtx[1]]]]::Array{Int64,1}
+        # nbd[1] = edge[root_vtx[1]]
+        nbd[:] = particle_tm1.nbd_list[:,edge[root_vtx[1]]]
+        # nbd[:] = [edge[root_vtx[1]]; particle_tm1.nbd_list[:,edge[root_vtx[1]]]]::Array{Int64,1}
         # calculate fruitless random walk probs
         # if edge[root_vtx[1]]==0
         #   println("root is equal to 0, step" * string(t))
@@ -87,7 +93,8 @@ function updateBandK!(s_state::SamplerState,particle_container::Array{Array{Part
         #   println("nbd is equal to 0, step " * string(t) * " nbd is " * string(nbd) * " root is " * string(edge[root_vtx[1]])
         #           * " degree of root is " * string(particle_tm1.degrees[edge[root_vtx[1]]]))
         # end
-        frwp[:] = randomWalkProbs(edge[root_vtx[1]],nbd,nv_tm1,particle_tm1.degrees,eig_pgf,particle_tm1.eig_vecs)::Float64
+        randomWalkProbs!(w,rt,nv_tm1,particle_tm1.degrees,eig_pgf,particle_tm1.eig_vecs)
+        frwp[1] = (w[1] + randomWalkProbs(edge[root_vtx[1]],nbd,nv_tm1,particle_tm1.degrees,eig_pgf,particle_tm1.eig_vecs))::Float64
         # println("b " * string(t) * " " * string(frwp[1]))
 
         lp_b[2] = (log(ap_alpha) - log(ap_alpha + bp_alpha))::Float64
@@ -100,7 +107,8 @@ function updateBandK!(s_state::SamplerState,particle_container::Array{Array{Part
           for i = 1:nv_tm1
             k==zero(Int64) ? eig_pgf[i] = (1.0 - particle_tm1.eig_vals[i])::Float64 : eig_pgf[i] *= (1.0 - particle_tm1.eig_vals[i])
           end
-          frwp[:] = randomWalkProbs(edge[root_vtx[1]],nbd,nv_tm1,particle_tm1.degrees,eig_pgf,particle_tm1.eig_vecs)::Float64
+          randomWalkProbs!(w,rt,nv_tm1,particle_tm1.degrees,eig_pgf,particle_tm1.eig_vecs)
+          frwp[1] = (w[1] +  randomWalkProbs(edge[root_vtx[1]],nbd,nv_tm1,particle_tm1.degrees,eig_pgf,particle_tm1.eig_vecs))::Float64
           # println("k " * string(t) * " " * string(k) * " " * string(frwp[1]))  # NEGATIVE???
           # if isnan(frwp[1])
           #   println("nan frwp " * string(t) * " root " * string(edge[root_vtx[1]]) * " nbd " * string(nbd))

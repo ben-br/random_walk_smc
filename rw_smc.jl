@@ -344,7 +344,7 @@ function rw_csmc!(particle_container::Array{Array{ParticleState,1},1},
   new_vertex = zeros(Bool,2)
   temp_edge_list = zeros(Int64,t,2)
   # deg_max = convert(Int64,maximum(s_state.degrees))::Int64
-  tmp_nbd_list = Array{Int64,1}[]
+  tmp_nbd_list = zeros(Int64,size(particle_container[1][1].nbd_list,1),nv_max)
   temp_edge_queue = zeros(Bool,T)
   temp_vertex_unmap = zeros(Int64,nv_max)
   edges_to_add = zeros(Bool,T)
@@ -382,11 +382,16 @@ function rw_csmc!(particle_container::Array{Array{ParticleState,1},1},
       end
       temp_edge_queue[edge_proposals[idx[i]]] = false
       temp_degrees .= particle_container[p][t-1].degrees
-      temp_degrees[temp_vertex_unmap[s_state.data_elist[[edge_proposals[idx[i]]],:]]] += 1.0
+      temp_degrees[temp_vertex_unmap[s_state.data_elist[[edge_proposals[idx[i]]],1]]] += one(Float64)
+      temp_degrees[temp_vertex_unmap[s_state.data_elist[[edge_proposals[idx[i]]],2]]] += one(Float64)
+
+      tmp_nbd_list[:] = particle_container[p][t-1].nbd_list
+      tmp_nbd_list[convert(Int64,temp_degrees[temp_vertex_unmap[temp_edge_list[t,1]]]),temp_vertex_unmap[temp_edge_list[t,1]]] = temp_edge_list[t,2]
+      tmp_nbd_list[convert(Int64,temp_degrees[temp_vertex_unmap[temp_edge_list[t,2]]]),temp_vertex_unmap[temp_edge_list[t,2]]] = temp_edge_list[t,1]
 
       # sum(temp_edge_queue)==1 ? nothing : error("uh oh, " * sum(temp_edge_queue))
       assert(sum(temp_edge_queue)==1)
-      edge_logp[idx[i]] += generateProposalProbsRW!(L,W,eig_pgf,temp_nv[1],temp_edge_list,tmp_nbd_list,temp_vertex_unmap,t,temp_degrees,temp_edge_queue,s_state)[1]
+      edge_logp[idx[i]] += generateProposalProbsRW!(L,W,eig_pgf,temp_nv[1],temp_edge_list,tmp_nbd_list,temp_vertex_unmap,t,temp_degrees,temp_edge_queue,s_state)[1]::Float64
       resetArray!(L)
       resetArray!(W)
       eig_pgf[:] = zero(Float64)
@@ -519,7 +524,7 @@ function rw_smc!(particle_container::Array{Array{ParticleState,1},1},n_particles
   new_vertex = zeros(Bool,2)
   temp_edge_list = zeros(Int64,t,2)
   # deg_max = convert(Int64,maximum(s_state.degrees))::Int64
-  tmp_nbd_list = Array{Int64,1}[]
+  tmp_nbd_list = zeros(Int64,size(particle_container[1][1].nbd_list,1),nv_max)
   temp_edge_queue = zeros(Bool,T)
   temp_vertex_unmap = zeros(Int64,nv_max)
   edges_to_add = zeros(Bool,T)
@@ -550,7 +555,12 @@ function rw_smc!(particle_container::Array{Array{ParticleState,1},1},n_particles
       end
       temp_edge_queue[edge_proposals[idx[i]]] = false
       temp_degrees .= particle_container[p][t-1].degrees
-      temp_degrees[temp_vertex_unmap[s_state.data_elist[[edge_proposals[idx[i]]],:]]] += 1.0
+      temp_degrees[temp_vertex_unmap[s_state.data_elist[[edge_proposals[idx[i]]],1]]] += one(Float64)
+      temp_degrees[temp_vertex_unmap[s_state.data_elist[[edge_proposals[idx[i]]],2]]] += one(Float64)
+
+      tmp_nbd_list[:] = particle_container[p][t-1].nbd_list[:]
+      tmp_nbd_list[convert(Int64,temp_degrees[temp_vertex_unmap[temp_edge_list[t,1]]]),temp_vertex_unmap[temp_edge_list[t,1]]] = temp_edge_list[t,2]
+      tmp_nbd_list[convert(Int64,temp_degrees[temp_vertex_unmap[temp_edge_list[t,2]]]),temp_vertex_unmap[temp_edge_list[t,2]]] = temp_edge_list[t,1]
 
       # sum(temp_edge_queue)==1 ? nothing : error("uh oh, " * sum(temp_edge_queue))
       assert(sum(temp_edge_queue)==1)
@@ -695,8 +705,8 @@ function updateParticles!(particle_container::Array{Array{ParticleState,1},1},t:
       # update degrees
       edge_unmap .= particle_container[p][t].vertex_unmap[edge]
       particle_container[p][t].degrees .= particle_container[ancestors[t,p]][t-1].degrees
-      particle_container[p][t].degrees[edge_unmap[1]] += 1
-      particle_container[p][t].degrees[edge_unmap[2]] += 1
+      particle_container[p][t].degrees[edge_unmap[1]] += one(Float64)
+      particle_container[p][t].degrees[edge_unmap[2]] += one(Float64)
 
       # update neighborhoods
       particle_container[p][t].nbd_list[:] = particle_container[ancestors[t,p]][t-1].nbd_list[:]
@@ -816,7 +826,7 @@ function generateProposalProbsRW!(L::Array{Float64},W::Array{Float64,2},eig_pgf:
         # nbd[:] = [root_vtx; nbd_list[:,root_vtx]]
       else
         nb = find( L[:,root_vtx] .> 0 ) # here, L is the adjacency matrix
-        nbd[1:numel(nb)] = nb
+        nbd[1:length(nb)] = nb
       end
       randomWalkProbs!(w,rt,nv,degrees,eig_pgf,eig_vecs) # prob of ending where it starts
       frwp[1] = randomWalkProbs(root_vtx,nbd,nv,degrees,eig_pgf,eig_vecs) + w[1] # prob of fruitless r.w.

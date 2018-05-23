@@ -25,7 +25,7 @@ lg = LightGraphs.Graph(edgelist2adj(g))
 lg_diam = LightGraphs.diameter(lg)::Int64
 
 # set sampler parameters
-const n_mcmc_iter = 10 # total number of iterations; includes burn-in
+const n_mcmc_iter = 100 # total number of iterations; includes burn-in
 const n_burn = 0 # burn-in
 const n_collect = 1 # collect a sample every n_collect iterations
 n_print = 1 # print progress updates every n_print iteration
@@ -36,7 +36,7 @@ const b_α = 1.0
 const a_λ = 0.25
 const b_λ = 1.0
 const k_trunc = 10*lg_diam
-const α_start = convert(Float64,(maximum(g)-1)/(n_edges_data-1))
+const α_start = convert(Float64,0.5*(maximum(g)-1)/(n_edges_data-1))
 const λ_start = convert(Float64,sqrt(lg_diam))
 
 # initialize empty particle container

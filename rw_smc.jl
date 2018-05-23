@@ -271,7 +271,7 @@ function rw_csmc!(particle_container::Array{Array{ParticleState,1},1},
   ancestors_ed[1,s_state.particle_path[t]] = particle_container[s_state.particle_path[t]][t].edge_idx_list[t]
   ancestors_ed[1,(s_state.particle_path[t]+1):end] .= edge_idx[s_state.particle_path[t]:end]
 
-  uniqueParticles!(unq,t,edge_samples)
+  uniqueParticles!(unq,t,edge_samples,ancestors)
 
   for t = 2:(T-2)
 
@@ -297,7 +297,7 @@ function rw_csmc!(particle_container::Array{Array{ParticleState,1},1},
         resetArray!(eig_pgf)
       else # same ancestor edge
         dup==1 ? (dup_idx = 1:cumu_eq[dup]) : (dup_idx = (cumu_eq[dup-1]+1):cumu_eq[dup])
-        # println(string(p) * " idx " * string(idx) * ", " * string(dup) * " idx " * string(dup_idx))
+        # println("t " * string(t) * ", " * string(p) * " idx " * string(idx) * ", " * string(dup) * " idx " * string(dup_idx))
         edge_proposals[idx] .= edge_proposals[dup_idx]
         edge_logp[idx] .= edge_logp[dup_idx]
       end
@@ -319,7 +319,7 @@ function rw_csmc!(particle_container::Array{Array{ParticleState,1},1},
             # ", path ancestor is " * string(s_state.particle_path[t-1]) )
     assert( ancestors[t,s_state.particle_path[t]]==s_state.particle_path[t-1] )
 
-    uniqueParticles!(unq,t,edge_samples)
+    uniqueParticles!(unq,t,edge_samples,ancestors)
 
     # update particles
     updateParticles!(particle_container,t,s_state,edge_samples,ancestors,log_w)
@@ -437,14 +437,14 @@ function rw_smc!(particle_container::Array{Array{ParticleState,1},1},n_particles
   log_weights = -log(n_particles)::Float64
   updateParticles!(particle_container,t,s_state,edge_idx,zeros(Int64,1,1),-log(T)*ones(Float64,n_particles))
 
-  unq = zeros(Int64,T,n_particles)
-  # unq_pos = zeros(Bool,T,n_particles)
-  uniqueParticles!(unq,t,edge_idx)
-
   ancestors = zeros(Int64,T,n_particles)
   ancestors[1,:] .= 1:n_particles
   ancestors_ed = zeros(Int64,T,n_particles)
   ancestors_ed[1,:] .= edge_idx
+
+  unq = zeros(Int64,T,n_particles)
+  # unq_pos = zeros(Bool,T,n_particles)
+  uniqueParticles!(unq,t,edge_idx,ancestors)
 
   # pre-allocated arrays
   n_edges_in_queue = zeros(Int64,n_particles)
@@ -493,7 +493,7 @@ function rw_smc!(particle_container::Array{Array{ParticleState,1},1},n_particles
     getAncestors!(ancestors,ancestors_ed,t,edge_samples_idx,cumu_eq)
 
     # keep track of unique particles
-    uniqueParticles!(unq,t,edge_samples)
+    uniqueParticles!(unq,t,edge_samples,ancestors)
 
     # update particles
     updateParticles!(particle_container,t,s_state,edge_samples,ancestors,log_w)

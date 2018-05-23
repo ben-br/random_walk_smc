@@ -423,14 +423,15 @@ function saveSamples!(alpha_samples::Array{Float64,1},lambda_samples::Array{Floa
 
 end
 
-function uniqueParticles!(unq::Array{Int64,2},t::Int64,ed_idx::Array{Int64,1})
+function uniqueParticles!(unq::Array{Int64,2},t::Int64,ed_idx::Array{Int64,1},ancestors::Array{Int64,2})
 
   nunq = zero(Int64)
+  anc = ancestors[t,:]
   for n = 1:length(ed_idx)
     if t==1
       root_pos = findfirst( ed_idx .== ed_idx[n] )
     else
-      root_pos = findfirst( ( ed_idx .== ed_idx[n] ).*( unq[t-1,:] .== unq[t-1,n] ) )
+      root_pos = findfirst( ( ed_idx .== ed_idx[n] ).*( unq[t-1,anc] .== unq[t-1,anc[n]] ) )
     end
 
     if root_pos == n

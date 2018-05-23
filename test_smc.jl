@@ -11,7 +11,7 @@ include("gibbs_updates.jl")
 srand(0)
 
 # set data parameters
-const n_edges_data = 50
+const n_edges_data = 100
 const α = 0.25
 const λ = 4.0
 const ld = Poisson(λ)
@@ -30,7 +30,7 @@ const n_burn = 0 # burn-in
 const n_collect = 1 # collect a sample every n_collect iterations
 n_print = 1 # print progress updates every n_print iteration
 
-const n_particles = 10
+const n_particles = 100
 const a_α = 1.0
 const b_α = 1.0
 const a_λ = 0.25
@@ -132,11 +132,11 @@ for s = 1:n_mcmc_iter
 
 end
 
-# using Plots
-# gr()
-# plot(lambda_samples,legend=false)
-# plot(alpha_samples,legend=false)
-# plot(edge_sequence_samples',legend=false)
+using Plots
+gr()
+plot(lambda_samples,legend=false)
+plot(alpha_samples,legend=false)
+plot!(edge_sequence_samples',legend=false)
 
 # updateBandK!(L,s_state,particle_container)
 # updateAlphaAndLambda!(s_state)

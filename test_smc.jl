@@ -11,7 +11,7 @@ include("gibbs_updates.jl")
 srand(0)
 
 # set data parameters
-const n_edges_data = 100
+const n_edges_data = 50
 const α = 0.25
 const λ = 4.0
 const ld = Poisson(λ)
@@ -30,7 +30,7 @@ const n_burn = 0 # burn-in
 const n_collect = 1 # collect a sample every n_collect iterations
 n_print = 1 # print progress updates every n_print iteration
 
-const n_particles = 100
+const n_particles = 10
 const a_α = 1.0
 const b_α = 1.0
 const a_λ = 0.25
@@ -69,6 +69,7 @@ W = zeros(Float64,nv_max,nv_max)
 eig_pgf = zeros(Float64,nv_max)
 ancestors = zeros(Int64,n_edges_data,n_particles)
 ancestors_ed = zeros(Int64,n_edges_data,n_particles)
+unq = zeros(Int64,n_edges_data,n_particles)
 n_edges_in_queue = zeros(Int64,n_particles)
 edge_samples_idx = zeros(Int64,n_particles)
 edge_samples = zeros(Int64,n_particles)
@@ -93,10 +94,12 @@ t_elapsed = zero(Float64)
 tic();
 for s = 1:n_mcmc_iter
     # update edge sequence
+    # @enter @time
     rw_csmc!(particle_container,s_state,n_particles,
             L,W,eig_pgf,
             ancestors,
             ancestors_ed,
+            unq,
             n_edges_in_queue,
             edge_samples_idx,
             edge_samples,

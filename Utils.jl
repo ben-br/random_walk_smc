@@ -422,3 +422,23 @@ function saveSamples!(alpha_samples::Array{Float64,1},lambda_samples::Array{Floa
   edge_sequence_samples[n_sample,:] = particle_container[p_idx][end].edge_idx_list[:]
 
 end
+
+function uniqueParticles!(unq::Array{Int64,2},t::Int64,ed_idx::Array{Int64,1})
+
+  nunq = zero(Int64)
+  for n = 1:length(ed_idx)
+    if t==1
+      root_pos = findfirst( ed_idx .== ed_idx[n] )
+    else
+      root_pos = findfirst( ( ed_idx .== ed_idx[n] ).*( unq[t-1,:] .== unq[t-1,n] ) )
+    end
+
+    if root_pos == n
+      nunq += one(Int64)
+      unq[t,n] = nunq
+    else
+      unq[t,n] = unq[t,root_pos]
+    end
+  end
+
+end

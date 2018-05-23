@@ -218,6 +218,7 @@ function rw_csmc!(particle_container::Array{Array{ParticleState,1},1},
                   eig_pgf::Array{Float64,1},
                   ancestors::Array{Int64,2},
                   ancestors_ed::Array{Int64,2},
+                  unq::Array{Int64,2},
                   n_edges_in_queue::Array{Int64,1},
                   edge_samples_idx::Array{Int64,1},
                   edge_samples::Array{Int64,1},
@@ -238,6 +239,7 @@ function rw_csmc!(particle_container::Array{Array{ParticleState,1},1},
 
   resetArray!(ancestors)
   resetArray!(ancestors_ed)
+  resetArray!(unq)
   resetArray!(n_edges_in_queue)
   resetArray!(edge_samples_idx)
   resetArray!(edge_samples)
@@ -269,6 +271,8 @@ function rw_csmc!(particle_container::Array{Array{ParticleState,1},1},
   ancestors_ed[1,s_state.particle_path[t]] = particle_container[s_state.particle_path[t]][t].edge_idx_list[t]
   ancestors_ed[1,(s_state.particle_path[t]+1):end] .= edge_idx[s_state.particle_path[t]:end]
 
+  uniqueParticles!(unq,t,edge_samples)
+
   for t = 2:(T-2)
 
     # generate exhaustive proposal set
@@ -284,7 +288,7 @@ function rw_csmc!(particle_container::Array{Array{ParticleState,1},1},
     # freeParticles!(free_particles,t,n_particles,s_state.particle_path)
     for p = 1:n_particles
       p==1 ? (idx = 1:cumu_eq[p]) : (idx = (cumu_eq[p-1]+1):cumu_eq[p])
-      dup = findfirst( (ancestors_ed[t-1,p] .== ancestors_ed[t-1,:]) )::Int64
+      dup = findfirst( (unq[t-1,p] .== unq[t-1,1:p]) )::Int64
       if dup==p
         edge_proposals[idx] = find(particle_container[p][t-1].edge_queue)
         edge_logp[idx] = generateProposalProbsRW!(L,W,eig_pgf,particle_container[p][t-1].n_vertices[1],particle_container[p][t-1],s_state)
@@ -314,6 +318,8 @@ function rw_csmc!(particle_container::Array{Array{ParticleState,1},1},
     # println( "step " * string(t) * ", assigned ancestor is " * string(ancestors[t,s_state.particle_path[t]]) *
             # ", path ancestor is " * string(s_state.particle_path[t-1]) )
     assert( ancestors[t,s_state.particle_path[t]]==s_state.particle_path[t-1] )
+
+    uniqueParticles!(unq,t,edge_samples)
 
     # update particles
     updateParticles!(particle_container,t,s_state,edge_samples,ancestors,log_w)
@@ -431,10 +437,15 @@ function rw_smc!(particle_container::Array{Array{ParticleState,1},1},n_particles
   log_weights = -log(n_particles)::Float64
   updateParticles!(particle_container,t,s_state,edge_idx,zeros(Int64,1,1),-log(T)*ones(Float64,n_particles))
 
+  unq = zeros(Int64,T,n_particles)
+  # unq_pos = zeros(Bool,T,n_particles)
+  uniqueParticles!(unq,t,edge_idx)
+
   ancestors = zeros(Int64,T,n_particles)
   ancestors[1,:] .= 1:n_particles
   ancestors_ed = zeros(Int64,T,n_particles)
   ancestors_ed[1,:] .= edge_idx
+
   # pre-allocated arrays
   n_edges_in_queue = zeros(Int64,n_particles)
   edge_samples_idx = zeros(Int64,n_particles)
@@ -456,7 +467,7 @@ function rw_smc!(particle_container::Array{Array{ParticleState,1},1},n_particles
 
     for p = 1:n_particles
       p==1 ? (idx = 1:cumu_eq[p]) : (idx = (cumu_eq[p-1]+1):cumu_eq[p])
-      dup = findfirst( (ancestors_ed[t-1,p] .== ancestors_ed[t-1,:]) )::Int64
+      dup = findfirst( (unq[t-1,p] .== unq[t-1,1:p]) )::Int64
       if dup==p
         edge_proposals[idx] = find(particle_container[p][t-1].edge_queue)
         edge_logp[idx] = generateProposalProbsRW!(L,W,eig_pgf,particle_container[p][t-1].n_vertices[1],particle_container[p][t-1],s_state)
@@ -470,16 +481,19 @@ function rw_smc!(particle_container::Array{Array{ParticleState,1},1},n_particles
       end
     end
 
-    # sample edges for propogation
+    # down-sample edges
     logSumExpWeights!(lse_w,edge_logp)
-    stratifiedResample!(edge_samples_idx,lse_w,n_particles) # index of edge in s_state.data_elist
-    edge_samples[:] = edge_proposals[edge_samples_idx]
+    stratifiedResample!(edge_samples_idx,lse_w,n_particles)
+    edge_samples[:] = edge_proposals[edge_samples_idx] # index of edge in s_state.data_elist
 
     log_w[:] = edge_logp[edge_samples_idx]
 
     # keep track of ancestors
     # ancestors[t,:] = getAncestors(edge_samples_idx,cumu_eq)
     getAncestors!(ancestors,ancestors_ed,t,edge_samples_idx,cumu_eq)
+
+    # keep track of unique particles
+    uniqueParticles!(unq,t,edge_samples)
 
     # update particles
     updateParticles!(particle_container,t,s_state,edge_samples,ancestors,log_w)

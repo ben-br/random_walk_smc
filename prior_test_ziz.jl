@@ -1,14 +1,25 @@
+## script to test prior sensitivity
 
-using Distributions
+ENV["JULIA_PKGDIR"] = "/data/ziz/bloemred/.julia"
+
+import Iterators
 import LightGraphs
+using JLD
+using JSON
+using DataStructures
 
 include("rw_smc.jl")
 include("Utils.jl")
 include("rand_rw.jl")
 include("gibbs_updates.jl")
 
+# get SLURM job and task ids
+job_id = convert(Int64,ENV["SLURM_ARRAY_JOB_ID"])
+task_id = convert(Int64,ENV["SLURM_ARRAY_TASK_ID"])
+job_name = ENV["SLURM_JOB_NAME"]
+
 # set seed
-srand(0)
+sd = srand(0)
 
 # set data parameters
 const n_edges_data = 50
@@ -25,19 +36,37 @@ lg = LightGraphs.Graph(edgelist2adj(g))
 lg_diam = LightGraphs.diameter(lg)::Int64
 
 # set sampler parameters
-const n_mcmc_iter = 500 # total number of iterations; includes burn-in
-const n_burn = 0 # burn-in
+const n_mcmc_iter = 2500 # total number of iterations; includes burn-in
+const n_burn = 500 # burn-in
 const n_collect = 1 # collect a sample every n_collect iterations
-n_print = 1 # print progress updates every n_print iteration
+const n_print = 10 # print progress updates every n_print iterations
 
 const n_particles = 100
-const a_α = 1.0
-const b_α = 1.0
-const a_λ = 0.25
-const b_λ = 1.0
 const k_trunc = 10*lg_diam
 const α_start = convert(Float64,0.5*(maximum(g)-1)/(n_edges_data-1))
 const λ_start = convert(Float64,sqrt(lg_diam))
+
+# hyperparameter settings
+alpha_hp = [0.5 0.5;
+            1.0 1.0;
+            2.0 2.0]
+
+lambda_hp = [1.0 0.25;
+              20.0 2.0;
+              0.01 0.01]
+
+n_ahp = size(alpha_hp,1)
+n_lhp = size(lambda_hp,1)
+hp_idx = Iterators.product(1:n_ahp,1:n_lhp)
+n_hp = length(hp_idx)
+
+hp_idx_this = Iterators.nth(hp_idx,task_id)
+
+# set prior parameters
+a_α = alpha_hp[hp_idx_this[1],1]
+b_α = alpha_hp[hp_idx_this[1],2]
+a_λ = lambda_hp[hp_idx_this[2],1]
+b_λ = lambda_hp[hp_idx_this[2],2]
 
 # initialize empty particle container
 nv_max = maximum(g)::Int64
@@ -110,8 +139,7 @@ for s = 1:n_mcmc_iter
     getParticlePath!(s_state.particle_path,particle_container,p_idx)
 
     # update B, K, α, λ
-    updateBandK!(s_state,particle_container,
-                L,eig_pgf,lp_b,p_b,lp_k,p_k)
+    updateBandK!(s_state,particle_container,L,eig_pgf,lp_b,p_b,lp_k,p_k)
     updateAlphaAndLambda!(s_state)
 
     if s > n_burn && mod((s - n_burn),n_collect)==0
@@ -131,54 +159,17 @@ for s = 1:n_mcmc_iter
 
 end
 
-using Plots
-gr()
-plot(lambda_samples,legend=false)
-plot(alpha_samples,legend=false)
-plot(edge_sequence_samples',legend=false)
 
-# updateBandK!(L,s_state,particle_container)
-# updateAlphaAndLambda!(s_state)
-#
-# @time rw_csmc!(particle_container,s_state,n_particles,L,W,eig_pgf)
-# getParticlePath!(s_state.particle_path,particle_container,p_idx)
-# updateBandK!(L,s_state,particle_container)
-# updateAlphaAndLambda!(s_state)
-
-# using Plots
-# gr()
-# plot()
-# for i = 1:n_particles
-#     plot!(particle_container[i][n_edges_data].edge_idx_list,legend=false)
-# end
-
-# for p in 1:n_particles
-#   particle_container[p] = [initialize_blank_particle_state(t,n_edges_data,deg_max,nv_max) for t in 1:n_edges_data]
-# end
-#
-# function main(n_reps::Int64,particle_container::Array{Array{ParticleState,1},1},n_particles::Int64,s_state::SamplerState)
-#
-#     for i = 1:n_reps
-#       rw_smc!(particle_container,n_particles,s_state)
-#       println(marginalLogLikelihodEstimate(particle_container,n_edges_data))
-#     end
-#
-# end
-#
-# @time main(5,particle_container,n_particles,s_state)
-#
-# particle_path = zeros(Int64,n_edges_data)
-# getParticlePath!(particle_path,particle_container,5)
-
-# Profile.clear()
-# @profile rw_smc!(particle_container,n_particles,s_state)
-# f = open("prof_bk_txt.txt","w")
-# Profile.print(f)
-# close(f)
-
-# for i = 1:5
-#   rw_smc!(particle_container,n_particles,s_state)
-#   println(marginalLogLikelihodEstimate(particle_container,n_edges_data))
-# end
-
-# @time rw_smc!(particle_container,n_particles,s_state)
+# save sampler output
+dirname = "/data/localhost/not-backed-up/bloemred/random_walk_smc/results/$(job_name)_$(job_id)/" 
+fname = "prior_$(job_id)_$(task_id)_samples.jld"
+pathname = dirname * fname
+save(pathname,
+      "g_data",g,
+      "init_seed",sr,
+      "final_sampler_state",s_state, # will have all relevant hyper parameters, etc
+      "alpha_samples",alpha_samples,
+      "lambda_samples",lambda_samples,
+      "edge_sequence_samples",edge_sequence_samples, # can reconstruct final conditioned particle path from this and s_state.particle_path
+      "log_marginal_samples",log_marginal_samples
+      )

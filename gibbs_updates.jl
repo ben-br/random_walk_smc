@@ -1,5 +1,5 @@
 # functions for Gibbs updates of non-SMC components
-
+using Distributions
 
 function calculatePredictiveParams(s_state::SamplerState,B_sum::Float64,K_sum::Float64,n_obs::Int64)::Tuple{Float64,Float64,Float64,Float64}
 
@@ -71,7 +71,7 @@ function updateBandK!(s_state::SamplerState,particle_container::Array{Array{Part
 
       if particle_t.new_vertex[1]
 
-        # update B_t
+        ## update B_t
         edge[:] = particle_t.vertex_unmap[particle_t.edge_list[t,:]]
         root_vtx[:] = find( particle_tm1.vertex_map[edge] .> 0)::Array{Int64,1}
         rt[:] = edge[root_vtx[1]]
@@ -80,20 +80,12 @@ function updateBandK!(s_state::SamplerState,particle_container::Array{Array{Part
           updateEigenSystem!(L,nv_tm1,particle_tm1)
           L[:] = zero(Float64)
         end
+        # calculate negative binomial pgf on eigenvalues
         nbPred!(eig_pgf,nv_tm1,ap_lambda,bp_lambda,particle_tm1.eig_vals)
-        # get zero-one ball
-        # nbd[1] = edge[root_vtx[1]]
+        # get one ball
         nbd[:] = particle_tm1.nbd_list[:,edge[root_vtx[1]]]
-        # nbd[:] = [edge[root_vtx[1]]; particle_tm1.nbd_list[:,edge[root_vtx[1]]]]::Array{Int64,1}
         # calculate fruitless random walk probs
-        # if edge[root_vtx[1]]==0
-        #   println("root is equal to 0, step" * string(t))
-        # elseif any(nbd .== 0)
-        #   nbd_zero = find(nbd .== 0)
-        #   println("nbd is equal to 0, step " * string(t) * " nbd is " * string(nbd) * " root is " * string(edge[root_vtx[1]])
-        #           * " degree of root is " * string(particle_tm1.degrees[edge[root_vtx[1]]]))
-        # end
-        randomWalkProbs!(w,rt,nv_tm1,particle_tm1.degrees,eig_pgf,particle_tm1.eig_vecs)
+        randomWalkProbs!(w,rt,nv_tm1,particle_tm1.degrees,eig_pgf,particle_tm1.eig_vecs) # r.w. ends where it started
         frwp[1] = (w[1] + randomWalkProbs(edge[root_vtx[1]],nbd,nv_tm1,particle_tm1.degrees,eig_pgf,particle_tm1.eig_vecs))::Float64
         # println("b " * string(t) * " " * string(frwp[1]))
 
@@ -105,7 +97,7 @@ function updateBandK!(s_state::SamplerState,particle_container::Array{Array{Part
         # update K_t
         for k in k_range
           for i = 1:nv_tm1
-            k==zero(Int64) ? eig_pgf[i] = (1.0 - particle_tm1.eig_vals[i])::Float64 : eig_pgf[i] *= (1.0 - particle_tm1.eig_vals[i])
+            k==zero(Int64) ? eig_pgf[i] = (one(Float64) - particle_tm1.eig_vals[i])::Float64 : eig_pgf[i] *= (one(Float64) - particle_tm1.eig_vals[i])::Float64
           end
           randomWalkProbs!(w,rt,nv_tm1,particle_tm1.degrees,eig_pgf,particle_tm1.eig_vecs)
           frwp[1] = (w[1] +  randomWalkProbs(edge[root_vtx[1]],nbd,nv_tm1,particle_tm1.degrees,eig_pgf,particle_tm1.eig_vecs))::Float64
@@ -113,7 +105,7 @@ function updateBandK!(s_state::SamplerState,particle_container::Array{Array{Part
           # if isnan(frwp[1])
           #   println("nan frwp " * string(t) * " root " * string(edge[root_vtx[1]]) * " nbd " * string(nbd))
           # end
-          lp_k[k+1] = (lgamma(k + ap_lambda) - lgamma(k + 1) - lgamma(ap_lambda) + k*log(bp_lambda) +
+          lp_k[k+1] = (lgamma(k + ap_lambda) - lgamma(k + one(Int64)) - lgamma(ap_lambda) + k*log(bp_lambda) +
                         log( ap_alpha/(ap_alpha + bp_alpha) +
                             (bp_alpha/(ap_alpha + bp_alpha))*frwp[1] ))::Float64
         end
@@ -133,18 +125,15 @@ function updateBandK!(s_state::SamplerState,particle_container::Array{Array{Part
           L[:] = zero(Float64)
         end
 
-        for k in k_range
+        for k in k_range # 0:k_trunc
           for i = 1:nv_tm1
-            k==zero(Int64) ? eig_pgf[i] = (1.0 - particle_tm1.eig_vals[i])::Float64 : eig_pgf[i] *= (1.0 - particle_tm1.eig_vals[i])::Float64
+            k==zero(Int64) ? eig_pgf[i] = (one(Float64) - particle_tm1.eig_vals[i])::Float64 : eig_pgf[i] *= (one(Float64) - particle_tm1.eig_vals[i])::Float64
           end
 
           edge[:] = particle_t.vertex_unmap[particle_t.edge_list[t,:]]
           randomWalkProbs!(rwp,edge,nv_tm1,particle_tm1.degrees,eig_pgf,particle_tm1.eig_vecs)
 
-          # if any(rwp .<= 0)
-          #     println("neg rwp " * string(rwp))
-          # end
-          lp_k[k+1] = (lgamma(ap_lambda + k) - lgamma(k + 1) - lgamma(ap_lambda) + k*log(bp_lambda) +
+          lp_k[k+1] = (lgamma(ap_lambda + k) - lgamma(k + one(Int64)) - lgamma(ap_lambda) + k*log(bp_lambda) +
                       log(bp_alpha) - log(ap_alpha + bp_alpha) +
                       log( particle_tm1.degrees[edge[1]]*rwp[1] + particle_tm1.degrees[edge[2]]*rwp[2] ))::Float64
         end

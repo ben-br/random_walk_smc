@@ -1,10 +1,8 @@
 #!/bin/bash
-
 #SBATCH --mail-user=bloemred@stats.ox.ac.uk
 #SBATCH --mail-type=ALL
 #SBATCH --job-name=prior-sensitivity
 #SBATCH --partition=medium
-#Choose your partition depending on your requirements
 #SBATCH --ntasks=1
 #SBATCH --nodes=1
 #SBATCH --cpus-per-task=1 #cores required for each job
@@ -15,7 +13,7 @@
 
 mkdir -p /data/ziz/not-backed-up/bloemred/random_walk_smc/output # for output file
 # Make a directory for output (.txt) and results (e.g. .jld, .json ,.mat) if it doesn't already exist
-mkdir -p /data/ziz/not-backed-up/bloemred/random_walk_smc/results/${SLURM_JOB_NAME}_${SLURM_ARRAY_JOB_ID}
+mkdir -p /data/ziz/not-backed-up/bloemred/random_walk_smc/results/prior-sensitivity_${SLURM_ARRAY_JOB_ID}
 
 # Run Julia code
 julia prior_test_ziz.jl

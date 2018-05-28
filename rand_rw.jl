@@ -18,7 +18,7 @@ function randomWalkSimpleGraph(;n_edges::Int=100, alpha_prob::AbstractFloat=0.5,
   for i = 2:n_edges
 
     coin = rand(coinDist)
-    vweights = (sizeBias ? deg : nv)
+    vweights = (sizeBias ? deg : ones(Float64,nv))
 
     stv = wsample(1:nv, vweights)  # sample start vertex
 

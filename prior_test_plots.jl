@@ -36,17 +36,17 @@ alpha_s = zeros(Float64,n_samples,n_hp)
 lambda_s = zeros(Float64,n_samples,n_hp)
 tmp = zeros(Float64,n_samples)
 
-dirname1 = "/data/ziz/not-backed-up/bloemred/random_walk_smc/results/prior_sensitivity_" * job_id
-dirname2 = "/data/ziz/not-backed-up/bloemred/random_walk_smc/results/plots"
+dirname1 = "/data/ziz/not-backed-up/bloemred/random_walk_smc/results/prior_sensitivity_" * job_id * "/"
+dirname2 = "/data/ziz/not-backed-up/bloemred/random_walk_smc/results/plots/"
 
 for n = 1:n_hp
   fname = "prior_" * job_id * "_" * string(n) * ".jld"
-  tmp[:] = load(dirname * fname, "alpha_samples")
+  tmp[:] = load(dirname1 * fname, "alpha_samples")
   alpha_s[:,n] = tmp
-  tmp[:] = load(dirname * fname, "lambda_samples")
+  tmp[:] = load(dirname1 * fname, "lambda_samples")
   lambda_s[:,n] = tmp
   plotname = dirname2 * "prior_" * string(n) * ".pdf"
   scatter(lambda_s[:,n],alpha_s[:,n],legend=false);
-  scatter!([λ],[α],legend=false,c=:black,marker=:star4,ms=10)
+  scatter!([λ],[α],legend=false,c=:black,marker=:star4,ms=10);
   savefig(plotname)
 end

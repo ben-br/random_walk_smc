@@ -1,14 +1,14 @@
 #!/bin/bash
 #SBATCH --mail-user=bloemred@stats.ox.ac.uk
 #SBATCH --mail-type=ALL
-#SBATCH --job-name=prior_sensitivity
+#SBATCH --job-name=prior_sensitivity_100
 #SBATCH --partition=medium
 #SBATCH --ntasks=1
 #SBATCH --nodes=1
 #SBATCH --cpus-per-task=1 
-#SBATCH --time=06:00:00
+#SBATCH --time=6:00:00
 #SBATCH --mem-per-cpu=8gb
-#SBATCH --array=1-9
+#SBATCH --array=1-2
 #SBATCH --output=/data/localhost/not-backed-up/bloemred/%x_%A_%a.out
 #SBATCH --error=/data/localhost/not-backed-up/bloemred/%x_%A_%a.err
 
@@ -17,7 +17,7 @@
 mkdir -p /data/ziz/not-backed-up/bloemred/random_walk_smc/results/${SLURM_JOB_NAME}_${SLURM_ARRAY_JOB_ID}
 
 # Run Julia code
-julia prior_test_ziz.jl
+julia prior_test_ziz_100.jl
 
 # print environment variables: the job ID, sub-job's task ID, and sub-job’s job ID.
 echo "SLURM_JOBID: " $SLURM_JOBID

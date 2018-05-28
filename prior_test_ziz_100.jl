@@ -22,11 +22,11 @@ job_name = ENV["SLURM_JOB_NAME"]
 sd = srand(0)
 
 # set data parameters
-const n_edges_data = 50
+const n_edges_data = 100
 const α = 0.25
 const λ = 4.0
 const ld = Poisson(λ)
-const sb = false
+const sb = true
 
 # sample graph
 g = randomWalkSimpleGraph(n_edges=n_edges_data,alpha_prob=α,length_distribution=ld,sizeBias=sb)

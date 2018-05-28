@@ -36,10 +36,10 @@ lg = LightGraphs.Graph(edgelist2adj(g))
 lg_diam = LightGraphs.diameter(lg)::Int64
 
 # set sampler parameters
-const n_mcmc_iter = 3000 # total number of iterations; includes burn-in
+const n_mcmc_iter = 1500 # total number of iterations; includes burn-in
 const n_burn = 500 # burn-in
 const n_collect = 1 # collect a sample every n_collect iterations
-const n_print = 10 # print progress updates every n_print iterations
+const n_print = 50 # print progress updates every n_print iterations
 
 const n_particles = 100
 const k_trunc = 10*lg_diam
@@ -119,6 +119,8 @@ log_marginal_samples = zeros(Float64,n_samples)
 
 n_s = zero(Int64)
 t_elapsed = zero(Float64)
+f = open("/data/ziz/not-backed-up/bloemred/outputs/manout/$(job_id)_$(task_id).txt","a")
+write(f,"Start of output. \n")
 tic();
 for s = 1:n_mcmc_iter
     # update edge sequence
@@ -153,15 +155,18 @@ for s = 1:n_mcmc_iter
 
     if mod(s,n_print)==0
         t_elapsed += toq();
-        println( "Finished with " * string(s) * " / " * string(n_mcmc_iter) * " iterations. Elapsed time: " * string(t_elapsed) )
+        out_str = "Finished with " * string(s) * " / " * string(n_mcmc_iter) * " iterations. Elapsed time: " * string(t_elapsed) * "\n"
+        println( out_str )
+        write(f,out_str)
         tic();
     end
 
 end
-
+write(f,"End of output. \n")
+close(f)
 
 # save sampler output
-dirname = "/data/localhost/not-backed-up/bloemred/" 
+dirname = "/data/localhost/not-backed-up/bloemred/"
 fname = "prior_$(job_id)_$(task_id).jld"
 pathname = dirname * fname
 println("Saving to " * pathname)
@@ -175,3 +180,20 @@ save(pathname,
       "edge_sequence_samples",edge_sequence_samples, # can reconstruct final conditioned particle path from this and s_state.particle_path
       "log_marginal_samples",log_marginal_samples
       )
+
+
+####################
+###### Plots #######
+####################
+
+using Plots
+gr()
+
+dirname1 = "/data/ziz/not-backed-up/bloemred/random_walk_smc/results/prior_sensitivity_" * job_id * "/"
+dirname2 = "/data/ziz/not-backed-up/bloemred/random_walk_smc/results/plots/"
+
+fname = "prior_" * job_id * "_" * string(n) * ".jld"
+plotname = dirname2 * "prior_" * string(n) * ".pdf"
+scatter(lambda_samples,alpha_samples,legend=false);
+scatter!([λ],[α],legend=false,c=:black,marker=:star4,ms=10);
+savefig(plotname);

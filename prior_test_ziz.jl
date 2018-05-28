@@ -14,8 +14,8 @@ include("rand_rw.jl")
 include("gibbs_updates.jl")
 
 # get SLURM job and task ids
-job_id = convert(Int64,ENV["SLURM_ARRAY_JOB_ID"])
-task_id = convert(Int64,ENV["SLURM_ARRAY_TASK_ID"])
+job_id = parse(Int64,ENV["SLURM_ARRAY_JOB_ID"])
+task_id = parse(Int64,ENV["SLURM_ARRAY_TASK_ID"])
 job_name = ENV["SLURM_JOB_NAME"]
 
 # set seed
@@ -36,7 +36,7 @@ lg = LightGraphs.Graph(edgelist2adj(g))
 lg_diam = LightGraphs.diameter(lg)::Int64
 
 # set sampler parameters
-const n_mcmc_iter = 2500 # total number of iterations; includes burn-in
+const n_mcmc_iter = 3000 # total number of iterations; includes burn-in
 const n_burn = 500 # burn-in
 const n_collect = 1 # collect a sample every n_collect iterations
 const n_print = 10 # print progress updates every n_print iterations
@@ -161,12 +161,14 @@ end
 
 
 # save sampler output
-dirname = "/data/localhost/not-backed-up/bloemred/random_walk_smc/results/$(job_name)_$(job_id)/" 
-fname = "prior_$(job_id)_$(task_id)_samples.jld"
+dirname = "/data/localhost/not-backed-up/bloemred/" 
+fname = "prior_$(job_id)_$(task_id).jld"
 pathname = dirname * fname
+println("Saving to " * pathname)
 save(pathname,
       "g_data",g,
-      "init_seed",sr,
+      "init_seed",sd,
+      "end_seed",Base.GLOBAL_RNG,
       "final_sampler_state",s_state, # will have all relevant hyper parameters, etc
       "alpha_samples",alpha_samples,
       "lambda_samples",lambda_samples,

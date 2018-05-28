@@ -5,11 +5,12 @@
 #SBATCH --partition=medium
 #SBATCH --ntasks=1
 #SBATCH --nodes=1
-#SBATCH --cpus-per-task=1 #cores required for each job
+#SBATCH --cpus-per-task=1 
+#cores required for each job
 #SBATCH --time=06:00:00
-#SBATCH --mem-per-cpu=8gb
+#SBATCH --mem-per-cpu=4gb
 #SBATCH --array=1-2
-#SBATCH --output=/data/localhost/not-backed-up/bloemred/random_walk_smc/output/prior-sensitivity_%A_%a_out.txt
+#SBATCH --output=/data/localhost/not-backed-up/bloemred/random_walk_smc/output/test_%A_%a_out.txt
 
 # run Julia script
 julia test.jl

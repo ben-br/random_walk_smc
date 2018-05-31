@@ -26,7 +26,7 @@ const n_edges_data = 100
 const α = 0.25
 const λ = 4.0
 const ld = Poisson(λ)
-const sb = false
+const sb = true
 
 # sample graph
 g = randomWalkSimpleGraph(n_edges=n_edges_data,alpha_prob=α,length_distribution=ld,sizeBias=sb)
@@ -167,8 +167,6 @@ for s = 1:n_mcmc_iter
 
 end
 f = open(text_out_name,"a")
-write(f,"End of output. \n")
-close(f)
 
 # save sampler output
 dirname = "/data/localhost/not-backed-up/bloemred/"

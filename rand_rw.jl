@@ -2,6 +2,45 @@
 
 using Distributions
 
+function randomWalkMultiGraph(;n_edges::Int=100, alpha_prob::AbstractFloat=0.5,length_distribution::DiscreteUnivariateDistribution=Poisson(1), sizeBias::Bool=false)
+
+  g = zeros(Int64,n_edges,2)
+  g[1,:] = [1 2] # first edge
+  n = 1
+  nv = 2
+  deg = [1;1]
+
+  min_offset = 1 - minimum(length_distribution)
+
+  coinDist = Bernoulli(alpha_prob)
+
+  for i = 2:n_edges
+
+    coin = rand(coinDist)
+    vweights = (sizeBias ? deg : ones(Float64,nv) )
+
+    stv = wsample(1:nv, vweights)  # sample start vertex
+
+    if(Bool(coin)) # add a vertex
+      nv += 1
+      g[i,:] = [stv,nv]
+      push!(deg,1)
+
+    else # random walk edge
+      K = rand(length_distribution) + min_offset
+      edv = (K > 0 ? randomwalk(g[1:i-1,:], stv, K)[end] : stv)
+
+      g[i,:] = [stv,edv]
+      deg[stv] += 1
+      deg[edv] += 1
+
+    end
+
+  end
+  return g
+
+end
+
 function randomWalkSimpleGraph(;n_edges::Int=100, alpha_prob::AbstractFloat=0.5,length_distribution::DiscreteUnivariateDistribution=Poisson(1), sizeBias::Bool=false)
   # generates a simple graph from the random walk model with new vertex probability β
   # and random walk length distribution `length_distribution`

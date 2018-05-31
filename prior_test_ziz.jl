@@ -22,7 +22,7 @@ job_name = ENV["SLURM_JOB_NAME"]
 sd = srand(0)
 
 # set data parameters
-const n_edges_data = 50
+const n_edges_data = 100
 const α = 0.25
 const λ = 4.0
 const ld = Poisson(λ)
@@ -119,8 +119,10 @@ log_marginal_samples = zeros(Float64,n_samples)
 
 n_s = zero(Int64)
 t_elapsed = zero(Float64)
-f = open("/data/ziz/not-backed-up/bloemred/outputs/manout/$(job_id)_$(task_id).txt","a")
+text_out_name = "/data/ziz/not-backed-up/bloemred/outputs/manout/$(job_id)_$(task_id).txt"
+f = open(text_out_name,"a")
 write(f,"Start of output. \n")
+close(f)
 tic();
 for s = 1:n_mcmc_iter
     # update edge sequence
@@ -157,11 +159,14 @@ for s = 1:n_mcmc_iter
         t_elapsed += toq();
         out_str = "Finished with " * string(s) * " / " * string(n_mcmc_iter) * " iterations. Elapsed time: " * string(t_elapsed) * "\n"
         println( out_str )
+        f = open(text_out_name,"a")
         write(f,out_str)
+        close(f)
         tic();
     end
 
 end
+f = open(text_out_name,"a")
 write(f,"End of output. \n")
 close(f)
 
@@ -189,11 +194,11 @@ save(pathname,
 using Plots
 gr()
 
-dirname1 = "/data/ziz/not-backed-up/bloemred/random_walk_smc/results/prior_sensitivity_" * job_id * "/"
+# dirname1 = "/data/ziz/not-backed-up/bloemred/random_walk_smc/results/prior_sensitivity_" * job_id * "/"
 dirname2 = "/data/ziz/not-backed-up/bloemred/random_walk_smc/results/plots/"
 
-fname = "prior_" * job_id * "_" * string(n) * ".jld"
-plotname = dirname2 * "prior_" * string(n) * ".pdf"
+# fname = "prior_" * job_id * "_" * string(n) * ".jld"
+plotname = dirname2 * "prior_$(job_id)_$(task_id).pdf"
 scatter(lambda_samples,alpha_samples,legend=false);
 scatter!([λ],[α],legend=false,c=:black,marker=:star4,ms=10);
-savefig(plotname);
+savefig(plotname)

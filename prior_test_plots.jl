@@ -14,7 +14,7 @@ const n_edges_data = 50
 const α = 0.25
 const λ = 4.0
 
-job_id = "2190469"
+job_id = "2190538" # 2190469 for ne_50, 2190538 for ne_100
 
 n_samples = convert(Int64,floor((n_mcmc_iter - n_burn)/n_collect))
 n_samples_plot = 1500

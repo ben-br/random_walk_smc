@@ -2,4 +2,5 @@
 -- edge to multigraph adjacency matrix
 
 -- sampling functions that initialize everything behind the scenes and return samples, etc
+  -- wrote these functions, need to test them
 -- plotting functions that work with sampler output

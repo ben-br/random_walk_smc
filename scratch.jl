@@ -7,7 +7,7 @@ gr()
 import MAT
 
 
-include("Utils.jl")
+include("utils.jl")
 include("rw_smc.jl")
 include("rand_rw.jl")
 

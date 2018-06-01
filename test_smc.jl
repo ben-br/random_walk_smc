@@ -3,7 +3,7 @@ using Distributions
 import LightGraphs
 
 include("rw_smc.jl")
-include("Utils.jl")
+include("utils.jl")
 include("rand_rw.jl")
 include("gibbs_updates.jl")
 

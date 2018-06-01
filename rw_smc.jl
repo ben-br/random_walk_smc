@@ -1,5 +1,6 @@
 # functions for random walk SMC
 using StatsBase
+include("smc_utils.jl")
 
 # include("Utils.jl")
 
@@ -180,35 +181,6 @@ function copyParticlelState!(particle_target::ParticleState,particle_source::Par
   particle_target.eig_vecs[:] = particle_source.eig_vecs[:]
 
 end
-
-# function copyParticlelState!(particle_target::ParticleState,max_idx::Int64,particle_source::ParticleState)
-#
-#   particle_target.n_edges .= particle_source.n_edges
-#   particle_target.edge_list[1:max_idx] .= particle_source.edge_list
-#   particle_target.n_vertices .= particle_source.n_vertices
-#   particle_target.new_vertex .= particle_source.new_vertex
-#   particle_target.log_w .= particle_source.log_w
-#   particle_target.ancestor .= particle_source.ancestor
-#   particle_target.degrees .= particle_source.degrees
-#   particle_target.vertex_map .= particle_source.vertex_map
-#   particle_target.vertex_unmap .= particle_source.vertex_unmap
-#   particle_target.edge_queue .= particle_source.edge_queue
-#
-# end
-
-# struct ParticleSet{T <: Int, TF <: AbstractFloat, S <: Int, GInt <: Int}
-#   # structure for keeping track of particle weights and states
-#
-#   n_particles::T  # number of particles
-#   log_w::Vector{TF}  # unnormalized log-importance weights for SMC
-#   log_p::Vector{TF}  # log-prob from prior
-#   unique_state_id::Vector{S}  # pointers to corresponding state in `uniqueParticleStates` vector
-#   proposals::Vector{Tuple{GInt,GInt}} # vector of edge tuples for current proposals
-#   # proposals_map::Vector{Tuple{GInt,GInt}} # proposals mapped to vertex set of `G_data`
-#   ess::String # type of effective sample size to use
-#   # immortal_particles::Vector{T} # vector of particle indices to condition on surviving resampling (typically `[1]`)
-#
-# end
 
 function rw_csmc!(particle_container::Array{Array{ParticleState,1},1},
                   s_state::SamplerState,
@@ -419,6 +391,131 @@ function rw_csmc!(particle_container::Array{Array{ParticleState,1},1},
     edge_samples[:] = last_edge_proposals[edge_samples_idx]
     updateParticles!(particle_container,T,s_state,edge_samples,ancestors,zeros(Float64,n_particles))
 
+end
+
+function SMC(g::Array{Int64,2},n_particles::Int64,α::Float64,λ::Float64,sb::Bool)
+
+  # initialize empty particle container
+  n_edges_data = size(g,1)
+  nv_max = maximum(g)::Int64
+  deg_max = convert(Int64,maximum(getDegrees(g)))
+  particle_container = Array{Array{ParticleState,1},1}(n_particles)
+  for p in 1:n_particles
+    particle_container[p] = [initialize_blank_particle_state(t,n_edges_data,deg_max,nv_max) for t in 1:n_edges_data]
+  end
+
+  pp = zeros(Int64,n_edges_data)
+  B_coins = rand(Bernoulli(α),n_edges_data)
+  K_walks = rand(Poisson(λ),n_edges_data)
+  B_coins[1] = zero(Int64)
+  K_walks[1] = zero(Int64)
+  k_trunc = 100*one(Int64)
+
+  # initialize SamplerState
+  s_state = new_sampler_state(g,sb,a_α,b_α,a_λ,b_λ,α,λ,B_coins,K_walks,k_trunc,pp)
+
+  # run smc
+  rw_smc!(particle_container,n_particles,s_state)
+  log_p = marginalLogLikelihodEstimate(particle_container,n_edges_data)
+
+  return particle_container,log_p
+
+end
+
+function ParticleGibbs(g::Array{Int64,2},n_particles::Int64,α_start::Float64,λ_start::Float64,sb::Bool)
+
+  # initialize empty particle container
+  n_edges_data = size(g,1)
+  nv_max = maximum(g)::Int64
+  deg_max = convert(Int64,maximum(getDegrees(g)))
+  particle_container = Array{Array{ParticleState,1},1}(n_particles)
+  for p in 1:n_particles
+    particle_container[p] = [initialize_blank_particle_state(t,n_edges_data,deg_max,nv_max) for t in 1:n_edges_data]
+  end
+
+  pp = zeros(Int64,n_edges_data)
+  B_coins = rand(Bernoulli(α_start),n_edges_data)
+  K_walks = rand(Poisson(λ_start),n_edges_data)
+  B_coins[1] = zero(Int64)
+  K_walks[1] = zero(Int64)
+
+  # initialize SamplerState
+  s_state = new_sampler_state(g,sb,a_α,b_α,a_λ,b_λ,α_start,λ_start,B_coins,K_walks,k_trunc,pp)
+
+  # initialize sampler
+  rw_smc!(particle_container,n_particles,s_state)
+  p_idx = sample(1:n_particles,1)[1]
+  getParticlePath!(s_state.particle_path,particle_container,p_idx)
+
+  # pre-allocate arrays for computation in rw_csmc!
+  L = zeros(Float64,nv_max,nv_max)
+  W = zeros(Float64,nv_max,nv_max)
+  eig_pgf = zeros(Float64,nv_max)
+  ancestors = zeros(Int64,n_edges_data,n_particles)
+  ancestors_ed = zeros(Int64,n_edges_data,n_particles)
+  unq = zeros(Int64,n_edges_data,n_particles)
+  n_edges_in_queue = zeros(Int64,n_particles)
+  edge_samples_idx = zeros(Int64,n_particles)
+  edge_samples = zeros(Int64,n_particles)
+  log_w = zeros(Float64,n_particles)
+  free_edge_samples_idx = zeros(Int64,n_particles-1)
+  free_edge_samples = zeros(Int64,n_particles-1)
+  lp_b = zeros(Float64,2)
+  p_b = zeros(Float64,2)
+  lp_k = zeros(Float64,k_trunc+1)
+  p_k = zeros(Float64,k_trunc+1)
+
+  # pre-allocate sample collection arrays
+  n_samples = convert(Int64,floor((n_mcmc_iter - n_burn)/n_collect))
+  alpha_samples = zeros(Float64,n_samples)
+  lambda_samples = zeros(Float64,n_samples)
+  particle_trajectory_samples = zeros(Int64,n_samples,n_edges_data)
+  edge_sequence_samples = zeros(Int64,n_samples,n_edges_data)
+  log_marginal_samples = zeros(Float64,n_samples)
+
+  n_s = zero(Int64)
+  t_elapsed = zero(Float64)
+  tic();
+  for s = 1:n_mcmc_iter
+      # update edge sequence
+      rw_csmc!(particle_container,s_state,n_particles,
+              L,W,eig_pgf,
+              ancestors,
+              ancestors_ed,
+              unq,
+              n_edges_in_queue,
+              edge_samples_idx,
+              edge_samples,
+              log_w,
+              free_edge_samples_idx,
+              free_edge_samples)
+
+      p_idx = sample(1:n_particles,1)[1]
+      getParticlePath!(s_state.particle_path,particle_container,p_idx)
+
+      # update B, K, α, λ
+      updateBandK!(s_state,particle_container,
+                  L,eig_pgf,lp_b,p_b,lp_k,p_k)
+      updateAlphaAndLambda!(s_state)
+
+      if s > n_burn && mod((s - n_burn),n_collect)==0
+          # collect samples
+          n_s += one(Int64)
+          log_marginal_samples[n_s] = marginalLogLikelihodEstimate(particle_container,n_edges_data)
+          saveSamples!(alpha_samples,lambda_samples,particle_trajectory_samples,edge_sequence_samples,
+                      s_state,particle_container,p_idx,n_s)
+
+      end
+
+      if mod(s,n_print)==0
+          t_elapsed += toq();
+          println( "Finished with " * string(s) * " / " * string(n_mcmc_iter) * " iterations. Elapsed time: " * string(t_elapsed) )
+          tic();
+      end
+
+  end
+
+  return xxxx
 end
 
 

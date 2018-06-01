@@ -47,7 +47,18 @@ for n = 1:n_hp
   tmp[:] = load(dirname1 * fname, "lambda_samples")
   lambda_s[:,n] = tmp
   plotname = dirname2 * "prior_" * string(n) * ".pdf"
-  scatter(lambda_s[1:n_samples_plot,n],alpha_s[1:n_samples_plot,n],legend=false);
-  scatter!([λ],[α],legend=false,c=:black,marker=:star4,ms=10);
+  scatter(lambda_s[1:n_samples_plot,n],alpha_s[1:n_samples_plot,n],legend=false,
+            markershape=:circle,markersize=5.5,markeralpha=0.25,markercolor=:grey,markerstrokewidth=0.0,
+            xlims=(0,35),xtickfont=font(20,"Times"),ylims=(0,1),ytickfont=font(20,"Times"));
+  scatter!([λ],[α],legend=false,marker=(:star4,10.0,1.0,:black));
   savefig(plotname)
 end
+
+save(dirname2 * "agg_samples_$(n_edges_data)_$(job_id).jld",
+      "alpha_hp",alpha_hp,
+      "lambda_hp",lambda_hp,
+      "alpha_samples",alpha_s,
+      "lambda_samples",lambda_s,
+      "alpha",α,
+      "lambda",λ,
+      "job_id",job_id)

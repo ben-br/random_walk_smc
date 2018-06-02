@@ -54,6 +54,26 @@ struct SamplerState
 
 end
 
+function new_sampler_state(elist_data::Array{Int64,2},size_bias::Bool,α::Float64,λ::Float64)
+"""
+Create new sampler state for SMC
+"""
+# not needed for SMC
+pp = zeros(Int64,n_edges_data)
+B_coins = rand(Bernoulli(α),n_edges_data)
+K_walks = rand(Poisson(λ),n_edges_data)
+B_coins[1] = zero(Int64)
+K_walks[1] = zero(Int64)
+k_trunc = 100*one(Int64)
+a_α = 1.0
+b_α = 1.0
+a_λ = 1.0
+b_λ = 1.0
+
+return new_sampler_state(elist_data,sb,a_α,b_α,a_λ,b_λ,α,λ,B_coins,K_walks,k_trunc,pp)
+
+end
+
 function new_sampler_state(elist_data::Array{Int64,2},
                             size_bias::Bool,
                             a_α::Float64,b_α::Float64,
@@ -404,15 +424,9 @@ function SMC(g::Array{Int64,2},n_particles::Int64,α::Float64,λ::Float64,sb::Bo
     particle_container[p] = [initialize_blank_particle_state(t,n_edges_data,deg_max,nv_max) for t in 1:n_edges_data]
   end
 
-  pp = zeros(Int64,n_edges_data)
-  B_coins = rand(Bernoulli(α),n_edges_data)
-  K_walks = rand(Poisson(λ),n_edges_data)
-  B_coins[1] = zero(Int64)
-  K_walks[1] = zero(Int64)
-  k_trunc = 100*one(Int64)
 
   # initialize SamplerState
-  s_state = new_sampler_state(g,sb,a_α,b_α,a_λ,b_λ,α,λ,B_coins,K_walks,k_trunc,pp)
+  s_state = new_sampler_state(g,sb,α,λ)
 
   # run smc
   rw_smc!(particle_container,n_particles,s_state)
@@ -422,7 +436,10 @@ function SMC(g::Array{Int64,2},n_particles::Int64,α::Float64,λ::Float64,sb::Bo
 
 end
 
-function ParticleGibbs(g::Array{Int64,2},n_particles::Int64,α_start::Float64,λ_start::Float64,sb::Bool)
+function ParticleGibbs(g::Array{Int64,2},n_particles::Int64,
+                        a_α::Float64,b_α::Float64,a_λ::Float64,b_λ::Float64,
+                        α_start::Float64,λ_start::Float64,sb::Bool,k_trunc::Int64,
+                        n_mcmc_iter::Int64,n_burn::Int64,n_collect::Int64,n_print::Int64)
 
   # initialize empty particle container
   n_edges_data = size(g,1)
@@ -509,13 +526,17 @@ function ParticleGibbs(g::Array{Int64,2},n_particles::Int64,α_start::Float64,λ
 
       if mod(s,n_print)==0
           t_elapsed += toq();
-          println( "Finished with " * string(s) * " / " * string(n_mcmc_iter) * " iterations. Elapsed time: " * string(t_elapsed) )
+          println( "Finished with " * string(s) * " / " * string(n_mcmc_iter) * " iterations. Elapsed time: $(t_elapsed) sec." )
           tic();
       end
 
   end
 
-  return xxxx
+  samples = Dict("alpha" => alpha_samples,
+                  "lambda" => lambda_samples,
+                  "edge_sequence" => edge_sequence_samples)
+
+  return samples
 end
 
 

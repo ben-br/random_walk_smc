@@ -131,11 +131,11 @@ for s = 1:n_mcmc_iter
 
 end
 
-using Plots
-gr()
-plot(lambda_samples,legend=false)
-plot(alpha_samples,legend=false)
-plot(edge_sequence_samples',legend=false)
+#using Plots
+#gr()
+#plot(lambda_samples,legend=false)
+#plot(alpha_samples,legend=false)
+#plot(edge_sequence_samples',legend=false)
 
 # updateBandK!(L,s_state,particle_container)
 # updateAlphaAndLambda!(s_state)

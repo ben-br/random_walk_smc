@@ -3,7 +3,6 @@
 ####################
 
 ## import required packages ##
-# REQUIRE?
 using Distributions
 import LightGraphs
 import Gadfly
@@ -24,46 +23,45 @@ srand(0)
 ########################
 
 ######### SYNTHETIC #########
+    syn_data = true
+    # set synthetic data parameters
+    n_edges_data = 25 # number of edges
+    α = 0.25 # parameter for new vertex probability
+    λ = 4.0 # paramter for random walk length distribution
+    ld = Poisson(λ) # random walk length distribution (automatically shifted by +1 if minimum is zero)
+    sb = true # degree-biased distribution for first vertex at each step (false for uniform distribution)
 
-# set synthetic data parameters
-n_edges_data = 25 # number of edges
-α = 0.25 # parameter for new vertex probability
-λ = 4.0 # paramter for random walk length distribution
-ld = Poisson(λ) # random walk length distribution (automatically shifted by +1 if minimum is zero)
-sb = true # degree-biased distribution for first vertex at each step (false for uniform distribution)
+    # sample simple graph (returns edge list)
+    g = randomWalkSimpleGraph(n_edges=n_edges_data,alpha_prob=α,length_distribution=ld,sizeBias=sb)
 
-# sample simple graph (returns edge list)
-g = randomWalkSimpleGraph(n_edges=n_edges_data,alpha_prob=α,length_distribution=ld,sizeBias=sb)
-
-# sample multi-graph (returns edge list)
-# g = randomWalkMultiGraph(n_edges=n_edges_data,alpha_prob=α,length_distribution=ld,sizeBias=sb)
-
-# convert edge list to adjacency matrix
-A = edgelist2adj(g)
-Gadfly.spy(A)
+    # convert edge list to adjacency matrix
+    A = edgelist2adj(g)
+    Gadfly.spy(A)
 
 ######### REAL DATA #########
+    syn_data = false
+    # SJS
+    # g = readcsv("data/sjsAdj.csv",Int64)
+    # NIPS
+    g = readcsv("data/nipsAdj_02_03.csv",Int64)
+    # PPI
+    # g = readcsv("data/interactomeAdj.csv",Int64)
 
-# SJS
-g = readcsv()
-# NIPS
-
-# PPI
-
-# convert edge list to adjacency matrix
-A = edgelist2adj(g)
-Gadfly.spy(A)
+    n_edges_data = size(g,1)
+    # convert edge list to adjacency matrix
+    A = edgelist2adj(g)
+    Gadfly.spy(A)
 
 ######################################
 # INTERFACE WITH LIGHTGRAPHS PACKAGE #
 ######################################
 
 # create LightGraphs.Graph object for use with LightGraphs functions
-lg = LightGraphs.Graph(A)
+    lg = LightGraphs.Graph(A)
 
-# Examples:
-lg_conn = LightGraphs.is_connected(lg)
-lg_diam = LightGraphs.diameter(lg)
+    # Examples:
+    lg_conn = LightGraphs.is_connected(lg)
+    lg_diam = LightGraphs.diameter(lg)
 
 
 #######################################
@@ -108,8 +106,11 @@ samples = ParticleGibbs(g,n_particles,
 # plot samples
 Plots.scatter(samples["lambda"],samples["alpha"],legend=false,
           ylims=[0,1],xlims=[0,15],
-          markershape=:circle,markersize=5.5,markeralpha=0.7,markercolor=:grey,markerstrokewidth=0.0)
-Plots.scatter!([λ],[α],legend=false,marker=(:star4,12.0,1.0,:black),xlabel=L"\lambda",ylabel=L"\alpha")
+          markershape=:circle,markersize=5.5,markeralpha=0.7,markercolor=:grey,markerstrokewidth=0.0,
+          xlabel=L"\lambda",ylabel=L"\alpha")
+if syn_data
+    Plots.scatter!([λ],[α],legend=false,marker=(:star4,12.0,1.0,:black))
+end
 
 # plot edge sequence
 Plots.plot(samples["edge_sequence"]',legend=false,xlabel="Sampled arrival order",ylabel="Edge index")

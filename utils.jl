@@ -122,11 +122,11 @@ function tally_ints(Z::Vector{Int},K::Int)
     return ret
 end
 
-function adj2edgelist(A::T where T<:Union{Array{Int64,2},SparseMatrixCSC{Int64,Int64}})::Array{Int64,2}
+function adj2edgelist(A::T where T<:Union{Array{Int64,2},SparseMatrixCSC{Int64,Int64},SparseMatrixCSC{Float64,Int64}})::Array{Int64,2}
   adj2edgelist(A,false)
 end
 
-function adj2edgelist(A::T where T<:Union{Array{Int64,2},SparseMatrixCSC{Int64,Int64}},multigraph::Bool)::Array{Int64,2}
+function adj2edgelist(A::T where T<:Union{Array{Int64,2},SparseMatrixCSC{Int64,Int64},SparseMatrixCSC{Float64,Int64}},multigraph::Bool)::Array{Int64,2}
 """
   Convert binary adjacency matrix A to edge list
 """

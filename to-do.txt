@@ -1,5 +1,0 @@
--- test multigraph
--- edge to multigraph adjacency matrix
-
--- README
--- fit real data in DEMO file

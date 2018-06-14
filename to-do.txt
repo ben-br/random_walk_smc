@@ -2,3 +2,5 @@
 -- edge to multigraph adjacency matrix
 
 -- README
+-- fit real data in DEMO file
+-- reduce memory footprint by setting matrices to number of edges + 1 (i.e., tree)

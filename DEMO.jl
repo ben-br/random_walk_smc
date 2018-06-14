@@ -19,6 +19,12 @@ include("gibbs_updates.jl")
 # set seed
 srand(0)
 
+########################
+######### DATA #########
+########################
+
+######### SYNTHETIC #########
+
 # set synthetic data parameters
 n_edges_data = 25 # number of edges
 α = 0.25 # parameter for new vertex probability
@@ -31,6 +37,18 @@ g = randomWalkSimpleGraph(n_edges=n_edges_data,alpha_prob=α,length_distribution
 
 # sample multi-graph (returns edge list)
 # g = randomWalkMultiGraph(n_edges=n_edges_data,alpha_prob=α,length_distribution=ld,sizeBias=sb)
+
+# convert edge list to adjacency matrix
+A = edgelist2adj(g)
+Gadfly.spy(A)
+
+######### REAL DATA #########
+
+# SJS
+g = readcsv()
+# NIPS
+
+# PPI
 
 # convert edge list to adjacency matrix
 A = edgelist2adj(g)

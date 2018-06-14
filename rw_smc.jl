@@ -120,8 +120,8 @@ function initialize_blank_particle_state(n_edges::Int64,n_edges_max::Int64,deg_m
                       zeros(Int64,n_vertices_max), # vertex_unmap
                       falses(n_edges_max), # edge_queue
                       zeros(Bool,1), # has_eigensystem
-                      zeros(Float64,n_vertices_max), # eig_vals
-                      zeros(Float64,n_vertices_max,n_vertices_max) # eig_vecs
+                      zeros(Float64,n_edges+1), # eig_vals
+                      zeros(Float64,n_edges+1,n_edges+1) # eig_vecs
                       )
                       # [spzeros(deg_max) for i=1:n_vertices_max], # nbd_list
                       # spzeros(Float64,n_vertices_max), # eig_vals
